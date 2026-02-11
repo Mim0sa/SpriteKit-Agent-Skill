@@ -5,7 +5,7 @@ description: Write, review, or improve SpriteKit game code following best practi
 
 # SpriteKit Agent Skill
 
-Expert guidance for SpriteKit game development — modern APIs, scene architecture, physics patterns, performance optimization, and cross-platform (iOS/macOS/tvOS) development.
+Expert guidance for SpriteKit framework game development — modern APIs, scene architecture, physics patterns, performance optimization, and cross-platform development.
 
 ---
 
@@ -13,11 +13,11 @@ Expert guidance for SpriteKit game development — modern APIs, scene architectu
 
 ### What are you working on?
 
-**Code Review & Optimization**
-→ Start with [Review Checklists](#review-checklists) → Dive into relevant references
-
 **Building a new feature**
 → Check [Quick Reference Tables](#quick-reference-tables) → Follow [Core Guidelines](#core-guidelines)
+
+**Code Review & Optimization**
+→ Start with [Review Checklists](#review-checklists) → Dive into relevant references
 
 **Performance issues**
 → Go to [Performance Checklist](#performance-checklist) → See `performance-optimization.md`
