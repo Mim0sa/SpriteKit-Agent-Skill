@@ -1,6 +1,6 @@
 ---
 name: spritekit-agent-skill
-description: Write, review, or improve SpriteKit game code following best practices for scene architecture, physics patterns, performance optimization, texture atlases, memory management, and cross-platform development. Use when building new game features, optimizing rendering performance, implementing physics systems, managing node lifecycles, or integrating SpriteKit with SwiftUI.
+description: SpriteKit expert for building, reviewing, and optimizing game code. Covers scene architecture, physics, performance, memory management, and cross-platform development.
 ---
 
 # SpriteKit Agent Skill
