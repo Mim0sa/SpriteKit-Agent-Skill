@@ -1,0 +1,8 @@
+interface:
+  display_name: "spritekit-agent-skill"
+  short_description: "Reviews and writes SpriteKit game code for correctness, performance, and modern API usage."
+  brand_color: "#F05138"
+  default_prompt: "Use $spritekit-agent-skill to review my SpriteKit code."
+
+policy:
+  allow_implicit_invocation: true

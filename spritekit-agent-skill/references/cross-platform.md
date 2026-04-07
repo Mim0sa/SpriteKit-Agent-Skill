@@ -1,259 +1,84 @@
 # Cross-Platform Development
 
-iOS/macOS/tvOS adaptation best practices.
-
-> **⚠️ visionOS Important Notice**
-> SpriteKit is **not recommended for native visionOS apps**. It should only be used in compatible iPhone or iPad apps running on visionOS. For native visionOS development, use RealityKit instead.
->
-> **Supported Platforms:**
-> - ✅ iOS (iPhone/iPad)
-> - ✅ macOS
-> - ✅ tvOS
-> - ⚠️ visionOS (Compatible iPhone/iPad apps only)
-
----
+- Never use SpriteKit in a native visionOS app — it is only supported in iPad/iPhone compatibility mode on visionOS. Use RealityKit for native visionOS targets.
+- On watchOS, display SpriteKit content using `WKInterfaceSKScene` (available watchOS 3.0+) — there is no `SKView` on watchOS.
+- Use `#if os(iOS)`, `#if os(macOS)`, `#if os(tvOS)` for all platform-specific branches. Never use `UIDevice.current.userInterfaceIdiom` for compile-time platform differences.
+- Abstract all input handling behind a shared protocol so game logic contains no platform conditionals (see `input-handling.md`).
+- On tvOS, never use touch-based interaction — all navigation must go through the focus engine or a `GCController`.
+- Handle the tvOS Siri Remote menu button explicitly via `UITapGestureRecognizer` with `allowedPressTypes = [.menu]` — unhandled menu presses cause the app to exit.
+- On macOS, hide the cursor on scene entry (`NSCursor.hide()`) and restore it in `willMove(from:)` without exception.
+- Position iOS HUD elements using `view.safeAreaInsets` — never use hardcoded offsets that break on notch/Dynamic Island devices.
+- Use `#if targetEnvironment(simulator)` to disable Metal shaders, accelerometer, and other features that fail in the simulator.
 
 ## Platform Detection
 
-### Conditional Compilation
-
 ```swift
 #if os(iOS)
-    // iPhone/iPad specific
-    let platform = "iOS"
+    // Touch, safe area, UIDevice orientation
 #elseif os(macOS)
-    // Mac specific
-    let platform = "macOS"
+    // Mouse, keyboard, NSCursor
 #elseif os(tvOS)
-    // Apple TV specific
-    let platform = "tvOS"
+    // Focus engine, Siri Remote, GCController required
 #elseif os(visionOS)
-    // ⚠️ Warning: SpriteKit is not recommended for native visionOS apps
-    // Only use for compatible iPhone/iPad apps running on visionOS
-    let platform = "visionOS"
+    // ⚠️ Compatibility mode only — native visionOS must use RealityKit
 #endif
 ```
 
-### Target Conditionals
+## tvOS — Menu Button
 
 ```swift
-#if targetEnvironment(macCatalyst)
-    // Running on Mac Catalyst
-#endif
-
-#if targetEnvironment(simulator)
-    // Running in simulator
-#endif
-```
-
----
-
-## Screen Size Adaptation
-
-### Device-Specific Layouts
-
-```swift
-class GameScene: SKScene {
-    func setupLayout() {
-        let screenSize = UIScreen.main.bounds.size
-        let isPad = UIDevice.current.userInterfaceIdiom == .pad
-        let isTV = UIDevice.current.userInterfaceIdiom == .tv
-
-        if isTV {
-            // TV: Larger UI, focus-based navigation
-            setupTVLayout()
-        } else if isPad {
-            // iPad: Full feature set
-            setupPadLayout()
-        } else {
-            // iPhone: Compact layout
-            setupPhoneLayout()
-        }
-    }
+#if os(tvOS)
+override func didMove(to view: SKView) {
+    let menu = UITapGestureRecognizer(target: self, action: #selector(menuPressed))
+    menu.allowedPressTypes = [NSNumber(value: UIPress.PressType.menu.rawValue)]
+    view.addGestureRecognizer(menu)
 }
+@objc func menuPressed() { togglePause() }
+#endif
 ```
 
-### Safe Areas
+## iOS — Safe Area
 
 ```swift
 #if os(iOS)
-import UIKit
-
 class GameViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-
         let skView = view as! SKView
         let scene = GameScene(size: view.bounds.size)
-
-        // Respect safe areas (notch, home indicator)
-        let safeFrame = view.safeAreaLayoutGuide.layoutFrame
-        scene.safeArea = safeFrame
+        scene.safeAreaInsets = view.safeAreaInsets
+        skView.presentScene(scene)
     }
 }
 #endif
 ```
 
----
-
-## visionOS Limitations
-
-### What Works (Compatible Mode)
-
-When running an iPhone or iPad app on visionOS:
-- SpriteKit renders in a compatibility window
-- Touch-based interactions work
-- Standard 2D gameplay functions normally
+## macOS — Cursor Management
 
 ```swift
-#if os(visionOS)
-// This code only runs in compatibility mode
-// It's an iPhone/iPad app running on visionOS
-class CompatibilityModeScene: SKScene {
-    // Standard SpriteKit code works normally
+#if os(macOS)
+class GameScene: SKScene {
+    override func didMove(to view: SKView) { NSCursor.hide() }
+    override func willMove(from view: SKView) { NSCursor.unhide() }
 }
 #endif
 ```
 
-### What Does NOT Work
-
-Native visionOS apps should NOT use:
-- `SKView` / `SpriteView` in immersive spaces
-- `WKInterfaceSKScene` (watchOS only anyway)
-- SpriteKit particle systems in 3D space
-
-### Recommended Alternatives
-
-For native visionOS game development:
+## visionOS — Use RealityKit Instead
 
 ```swift
-// ❌ Don't do this in native visionOS app
-import SpriteKit
-let scene = SKScene()
+// ❌ Wrong: SpriteKit in a native visionOS app
+SpriteView(scene: GameScene())  // Not supported
 
-// ✅ Use RealityKit instead
+// ✅ Correct: RealityKit for native visionOS
 import RealityKit
-import RealityKitContent
-
-// Create 2D-style game in 3D space using RealityKit
-struct ImmersiveGame: View {
+struct ImmersiveView: View {
     var body: some View {
         RealityView { content in
-            // Load RealityKit content
-            if let scene = try? await Entity(named: "GameScene") {
+            if let scene = try? await Entity(named: "GameScene", in: realityKitContentBundle) {
                 content.add(scene)
             }
         }
     }
 }
 ```
-
----
-
-## Platform-Specific Features
-
-### tvOS Focus Engine
-
-```swift
-#if os(tvOS)
-class TVGameScene: SKScene {
-
-    override func didMove(to view: SKView) {
-        // Enable focus-based navigation
-        setupFocusNavigation()
-    }
-
-    func setupFocusNavigation() {
-        // Menu button handling
-        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(menuPressed))
-        tapRecognizer.allowedPressTypes = [NSNumber(value: UIPress.PressType.menu.rawValue)]
-        view?.addGestureRecognizer(tapRecognizer)
-    }
-
-    @objc func menuPressed() {
-        // Handle menu button
-    }
-}
-#endif
-```
-
-### macOS Cursor
-
-```swift
-#if os(macOS)
-import AppKit
-
-class MacGameScene: SKScene {
-
-    func hideCursor() {
-        NSCursor.hide()
-    }
-
-    func showCursor() {
-        NSCursor.unhide()
-    }
-
-    func setCursorAppearance() {
-        NSCursor.crosshair.set()
-    }
-}
-#endif
-```
-
----
-
-## Input Adaptation
-
-### Unified Input Handler
-
-```swift
-class GameScene: SKScene {
-
-    #if os(iOS) || os(tvOS)
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        handleInputBegan(at: touches.first?.location(in: self))
-    }
-    #elseif os(macOS)
-    override func mouseDown(with event: NSEvent) {
-        handleInputBegan(at: event.location(in: self))
-    }
-    #endif
-
-    func handleInputBegan(at location: CGPoint?) {
-        guard let location = location else { return }
-        // Handle input
-    }
-}
-```
-
----
-
-## Asset Variants
-
-### Device-Specific Assets
-
-```swift
-func loadBackground() -> SKTexture {
-    #if os(tvOS)
-    return SKTexture(imageNamed: "background_tv")
-    #elseif os(macOS)
-    return SKTexture(imageNamed: "background_mac")
-    #else
-    return SKTexture(imageNamed: "background_ios")
-    #endif
-}
-```
-
----
-
-## Checklist
-
-- [ ] Use #if os() for platform-specific code
-- [ ] Handle different screen sizes gracefully
-- [ ] Support tvOS focus engine
-- [ ] Manage macOS cursor visibility
-- [ ] Adapt UI for different input methods
-- [ ] Test on all target platforms
-- [ ] Use platform-specific assets when needed
-- [ ] ⚠️ Do NOT use SpriteKit in native visionOS apps (use RealityKit instead)
-- [ ] Document visionOS compatibility mode if applicable

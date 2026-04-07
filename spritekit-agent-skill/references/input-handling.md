@@ -1,296 +1,120 @@
 # Input Handling
 
-Touch, mouse, and game controller handling in SpriteKit.
+- Always implement `touchesCancelled(_:with:)` on iOS — forward it to `touchesEnded` to prevent stuck input states.
+- Enable `view.isMultipleTouchEnabled = true` explicitly if the game requires multi-touch; it is disabled by default.
+- Abstract platform input behind a protocol so game logic does not contain `#if os()` branching.
+- For tvOS, handle the Siri Remote menu button via `UITapGestureRecognizer` with `allowedPressTypes = [.menu]`.
+- For macOS, implement `mouseMoved` only when hover/aim feedback is required — it fires constantly and adds cost.
+- Use `gesture recognizers` added to the `SKView` for complex gestures (pinch, pan, double-tap) rather than reimplementing them from raw touch events.
+- Convert gesture recognizer coordinates with `convertPoint(fromView:)` before using them in scene space.
+- Bind game controller handlers with `[weak self]` — `GCController` holds strong references to closures.
+- Poll `GCController.controllers()` in `didMove(to:)` to handle controllers already connected before the scene loads.
 
----
-
-## Touch Input (iOS)
-
-### Basic Touch Handling
+## Touch (iOS)
 
 ```swift
 class GameScene: SKScene {
-
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
-        let location = touch.location(in: self)
-        let node = atPoint(location)
-
-        if node.name == "button" {
-            handleButtonPress()
-        }
+        handleInput(at: touch.location(in: self))
     }
-
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
-        let location = touch.location(in: self)
-        let previousLocation = touch.previousLocation(in: self)
-
-        let translation = CGPoint(
-            x: location.x - previousLocation.x,
-            y: location.y - previousLocation.y
-        )
-
-        // Handle drag
+        handleInputMoved(to: touch.location(in: self))
     }
-
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // Handle touch end
+        handleInputEnded()
     }
-
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // Always handle cancellation
-        touchesEnded(touches, with: event)
+        touchesEnded(touches, with: event)  // Always forward
     }
 }
 ```
 
-### Multi-Touch Support
-
-```swift
-class GameScene: SKScene {
-    var activeTouches: [UITouch: SKNode] = [:]
-
-    override func didMove(to view: SKView) {
-        view.isMultipleTouchEnabled = true
-    }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            let location = touch.location(in: self)
-            let node = atPoint(location)
-            activeTouches[touch] = node
-        }
-    }
-
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            activeTouches.removeValue(forKey: touch)
-        }
-    }
-}
-```
-
----
-
-## Mouse Input (macOS)
-
-### Mouse Event Handling
+## Mouse (macOS)
 
 ```swift
 #if os(macOS)
-import AppKit
-
-class GameScene: SKScene {
-
+extension GameScene {
     override func mouseDown(with event: NSEvent) {
-        let location = event.location(in: self)
-        // Handle click
+        handleInput(at: event.location(in: self))
     }
-
     override func mouseDragged(with event: NSEvent) {
-        let location = event.location(in: self)
-        // Handle drag
+        handleInputMoved(to: event.location(in: self))
     }
-
     override func mouseUp(with event: NSEvent) {
-        // Handle release
-    }
-
-    override func rightMouseDown(with event: NSEvent) {
-        // Handle right click
-    }
-
-    override func scrollWheel(with event: NSEvent) {
-        let deltaY = event.scrollingDeltaY
-        // Handle zoom/scroll
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        let location = event.location(in: self)
-        // Handle hover
+        handleInputEnded()
     }
 }
 #endif
 ```
 
----
+## Cross-Platform Abstraction
 
-## Game Controller (tvOS, iOS)
+```swift
+protocol InputHandlerDelegate: AnyObject {
+    func inputBegan(at point: CGPoint)
+    func inputMoved(to point: CGPoint)
+    func inputEnded()
+}
 
-### Controller Setup
+class GameScene: SKScene, InputHandlerDelegate {
+    func inputBegan(at point: CGPoint) { /* shared logic */ }
+    func inputMoved(to point: CGPoint) { /* shared logic */ }
+    func inputEnded() { /* shared logic */ }
+
+    #if os(iOS) || os(tvOS)
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let loc = touches.first?.location(in: self) { inputBegan(at: loc) }
+    }
+    #elseif os(macOS)
+    override func mouseDown(with event: NSEvent) {
+        inputBegan(at: event.location(in: self))
+    }
+    #endif
+}
+```
+
+## Game Controller (tvOS / iOS)
 
 ```swift
 import GameController
 
 class GameScene: SKScene {
-
     override func didMove(to view: SKView) {
-        setupGameControllers()
+        NotificationCenter.default.addObserver(self, selector: #selector(controllerConnected(_:)),
+                                               name: .GCControllerDidConnect, object: nil)
+        GCController.controllers().forEach { registerController($0) }
     }
 
-    func setupGameControllers() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(controllerConnected),
-            name: .GCControllerDidConnect,
-            object: nil
-        )
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(controllerDisconnected),
-            name: .GCControllerDidDisconnect,
-            object: nil
-        )
-
-        // Check for already connected controllers
-        for controller in GCController.controllers() {
-            registerController(controller)
-        }
-    }
-
-    @objc func controllerConnected(_ notification: Notification) {
-        guard let controller = notification.object as? GCController else { return }
-        registerController(controller)
+    @objc func controllerConnected(_ note: Notification) {
+        if let c = note.object as? GCController { registerController(c) }
     }
 
     func registerController(_ controller: GCController) {
-        // Extended gamepad (modern controllers)
-        if let gamepad = controller.extendedGamepad {
-            gamepad.leftThumbstick.valueChangedHandler = { [weak self] x, y in
-                self?.handleLeftStick(x: x, y: y)
-            }
-
-            gamepad.rightThumbstick.valueChangedHandler = { [weak self] x, y in
-                self?.handleRightStick(x: x, y: y)
-            }
-
-            gamepad.buttonA.pressedChangedHandler = { [weak self] button, value, pressed in
-                if pressed { self?.handleButtonA() }
-            }
+        controller.extendedGamepad?.leftThumbstick.valueChangedHandler = { [weak self] _, x, y in
+            self?.handleStick(x: x, y: y)
         }
-
-        // Micro gamepad (Siri Remote)
-        if let microGamepad = controller.microGamepad {
-            microGamepad.dpad.valueChangedHandler = { [weak self] x, y in
-                self?.handleDPad(x: x, y: y)
-            }
-
-            microGamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-                if pressed { self?.handleSelect() }
-            }
+        controller.extendedGamepad?.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
+            if pressed { self?.handleJump() }
         }
     }
 }
 ```
 
----
-
-## Unified Input Handler
-
-### Cross-Platform Input Abstraction
-
-```swift
-protocol InputHandlerDelegate: AnyObject {
-    func inputMoved(to point: CGPoint)
-    func inputBegan(at point: CGPoint)
-    func inputEnded(at point: CGPoint)
-    func inputCancelled()
-}
-
-#if os(iOS) || os(tvOS)
-class InputHandler {
-    weak var delegate: InputHandlerDelegate?
-
-    func handleTouchesBegan(_ touches: Set<UITouch>, in view: SKView) {
-        guard let touch = touches.first else { return }
-        let location = touch.location(in: view)
-        delegate?.inputBegan(at: location)
-    }
-
-    func handleTouchesMoved(_ touches: Set<UITouch>, in view: SKView) {
-        guard let touch = touches.first else { return }
-        let location = touch.location(in: view)
-        delegate?.inputMoved(to: location)
-    }
-
-    func handleTouchesEnded(_ touches: Set<UITouch>, in view: SKView) {
-        guard let touch = touches.first else { return }
-        let location = touch.location(in: view)
-        delegate?.inputEnded(at: location)
-    }
-}
-#elseif os(macOS)
-class InputHandler {
-    weak var delegate: InputHandlerDelegate?
-
-    func handleMouseDown(at point: CGPoint) {
-        delegate?.inputBegan(at: point)
-    }
-
-    func handleMouseDragged(at point: CGPoint) {
-        delegate?.inputMoved(to: point)
-    }
-
-    func handleMouseUp(at point: CGPoint) {
-        delegate?.inputEnded(at: point)
-    }
-}
-#endif
-```
-
----
-
-## Gesture Recognizers
-
-### UIGestureRecognizer Integration (iOS)
+## Gesture Recognizer (iOS)
 
 ```swift
 class GameScene: SKScene {
-
     override func didMove(to view: SKView) {
-        setupGestureRecognizers()
-    }
-
-    func setupGestureRecognizers() {
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        tapGesture.numberOfTapsRequired = 2
-        view?.addGestureRecognizer(tapGesture)
-
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
-        view?.addGestureRecognizer(panGesture)
-
-        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
-        view?.addGestureRecognizer(pinchGesture)
-    }
-
-    @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-        let location = gesture.location(in: view)
-        let sceneLocation = convertPoint(fromView: location)
-        // Handle double tap
-    }
-
-    @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
-        let translation = gesture.translation(in: view)
-        // Handle pan
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        view.addGestureRecognizer(pinch)
     }
 
     @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-        let scale = gesture.scale
-        // Handle zoom
+        let scenePoint = convertPoint(fromView: gesture.location(in: view))
+        zoom(to: gesture.scale, anchor: scenePoint)
+        gesture.scale = 1  // Reset delta
     }
 }
 ```
-
----
-
-## Checklist
-
-- [ ] Handle touchesCancelled properly
-- [ ] Support multi-touch if needed
-- [ ] Implement mouse support for macOS
-- [ ] Support game controllers for tvOS
-- [ ] Create unified input abstraction
-- [ ] Use gesture recognizers for complex gestures
-- [ ] Test on all target input methods

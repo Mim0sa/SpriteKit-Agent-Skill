@@ -1,163 +1,113 @@
 # SwiftUI Integration
 
-SpriteView, state sharing, and mixed UI patterns.
+- Use `SpriteView` for embedding SpriteKit scenes in SwiftUI — it handles the `SKView` lifecycle automatically.
+- Never create the `SKScene` inline as a computed `var` on the `View` struct — it re-creates the scene on every render pass. Use `@State` or a separate stored property.
+- Pass shared state via `@Observable` (iOS 17+) or `ObservableObject` (iOS 13+). Never expose game state through global singletons.
+- Hold a `weak` reference to shared state objects inside `SKScene` — a strong reference creates a retain cycle between the scene and the SwiftUI state.
+- Update SwiftUI state from SpriteKit only on the main actor — `SKScene` callbacks run on the main thread, but confirm this when using async dispatch.
+- Use `UIViewControllerRepresentable` only when you need `SKView` configuration not exposed by `SpriteView` (e.g. custom `preferredFramesPerSecond`).
+- Pause/resume the scene in response to SwiftUI lifecycle events (`onAppear`/`onDisappear` or `.onChange(of: scenePhase)`).
 
----
-
-## Basic SpriteView
-
-### Simple Integration
+## Stable Scene Creation
 
 ```swift
-import SwiftUI
-import SpriteKit
-
+// Wrong: scene re-created on every SwiftUI render pass
 struct GameView: View {
-    var scene: SKScene {
-        let scene = GameScene(size: CGSize(width: 1024, height: 768))
-        scene.scaleMode = .aspectFill
-        return scene
+    var scene: SKScene {  // Computed property = new scene every time
+        let s = GameScene(size: CGSize(width: 1024, height: 768))
+        s.scaleMode = .aspectFill
+        return s
     }
+    var body: some View { SpriteView(scene: scene) }
+}
 
+// Correct: scene held in @State
+struct GameView: View {
+    @State private var scene = GameScene.make()
     var body: some View {
         SpriteView(scene: scene)
             .ignoresSafeArea()
     }
 }
+extension GameScene {
+    static func make() -> GameScene {
+        let s = GameScene(size: CGSize(width: 1024, height: 768))
+        s.scaleMode = .aspectFill
+        return s
+    }
+}
 ```
 
-### SpriteView Options
-
-```swift
-SpriteView(scene: scene, options: [
-    .allowsTransparency,
-    .ignoresSiblingOrder
-])
-.frame(width: 300, height: 300)
-```
-
----
-
-## State Sharing
-
-### @Observable Pattern (iOS 17+)
-
-Modern observation using the `@Observable` macro - more efficient and simpler syntax:
+## State Sharing — @Observable (iOS 17+)
 
 ```swift
 @Observable
 class GameState {
     var score: Int = 0
-    var isPaused: Bool = false
+    var lives: Int = 3
 }
 
-struct GameContainerView: View {
+struct GameView: View {
     @State private var gameState = GameState()
+    // Scene held in @State — created once, not re-created on every render pass
+    @State private var scene: GameScene = GameScene.make()
 
     var body: some View {
         ZStack {
-            SpriteView(scene: GameScene(state: gameState))
-
+            SpriteView(scene: scene)
             VStack {
-                Text("Score: \(gameState.score)")
-                    .font(.title)
+                Text("Score: \(gameState.score)").font(.title).foregroundStyle(.white)
                 Spacer()
-            }
+            }.padding()
         }
+        .ignoresSafeArea()
+        .onAppear { scene.gameState = gameState }  // Wire state after scene is stable
     }
 }
 
 class GameScene: SKScene {
-    weak var gameState: GameState?
+    weak var gameState: GameState?  // weak — avoids retain cycle
 
-    convenience init(state: GameState) {
-        self.init(size: CGSize(width: 1024, height: 768))
-        self.gameState = state
+    static func make() -> GameScene {
+        let scene = GameScene(size: CGSize(width: 1024, height: 768))
+        scene.scaleMode = .aspectFill
+        return scene
     }
 
-    func updateScore(_ points: Int) {
-        gameState?.score += points
+    func playerScored(_ points: Int) {
+        gameState?.score += points  // Mutates @Observable on main thread
     }
 }
 ```
 
-### ObservableObject Pattern (iOS 13+)
-
-Traditional observation using `ObservableObject` protocol and `@Published` properties:
+## State Sharing — ObservableObject (iOS 13+)
 
 ```swift
 class GameState: ObservableObject {
     @Published var score: Int = 0
-    @Published var isPaused: Bool = false
 }
 
-struct GameContainerView: View {
+struct GameView: View {
     @StateObject private var gameState = GameState()
-
     var body: some View {
-        ZStack {
-            SpriteView(scene: GameScene(state: gameState))
-
-            VStack {
-                Text("Score: \(gameState.score)")
-                    .font(.title)
-                Spacer()
-            }
-        }
-    }
-}
-
-class GameScene: SKScene {
-    weak var gameState: GameState?
-
-    convenience init(state: GameState) {
-        self.init(size: CGSize(width: 1024, height: 768))
-        self.gameState = state
-    }
-
-    func updateScore(_ points: Int) {
-        gameState?.score += points
+        SpriteView(scene: GameScene.make(state: gameState))
     }
 }
 ```
 
----
-
-## UIViewControllerRepresentable
-
-### Custom SpriteKit View Controller
+## Lifecycle — Pause on Background
 
 ```swift
-struct SpriteKitContainer: UIViewControllerRepresentable {
-    let scene: SKScene
+struct GameView: View {
+    @State private var scene = GameScene.make()
+    @Environment(\.scenePhase) private var scenePhase
 
-    func makeUIViewController(context: Context) -> UIViewController {
-        let viewController = UIViewController()
-        let skView = SKView()
-        skView.translatesAutoresizingMaskIntoConstraints = false
-        viewController.view.addSubview(skView)
-
-        NSLayoutConstraint.activate([
-            skView.topAnchor.constraint(equalTo: viewController.view.topAnchor),
-            skView.bottomAnchor.constraint(equalTo: viewController.view.bottomAnchor),
-            skView.leadingAnchor.constraint(equalTo: viewController.view.leadingAnchor),
-            skView.trailingAnchor.constraint(equalTo: viewController.view.trailingAnchor)
-        ])
-
-        skView.presentScene(scene)
-        return viewController
+    var body: some View {
+        SpriteView(scene: scene)
+            .ignoresSafeArea()
+            .onChange(of: scenePhase) { _, phase in
+                scene.isPaused = (phase != .active)
+            }
     }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 ```
-
----
-
-## Checklist
-
-- [ ] Use SpriteView for simple integration
-- [ ] Share state via `@Observable` (iOS 17+) or `ObservableObject` (iOS 13+)
-- [ ] Use weak references to avoid retain cycles
-- [ ] Handle lifecycle properly (pause/resume)
-- [ ] Use UIViewControllerRepresentable for custom setups

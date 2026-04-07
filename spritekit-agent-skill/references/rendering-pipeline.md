@@ -1,224 +1,107 @@
 # Rendering Pipeline
 
-Custom shaders, offscreen rendering, and effects.
+- SpriteKit uses Metal as its rendering backend on all platforms (iOS 12+ / macOS 10.14+). SKShader source is GLSL-compatible syntax but compiled to Metal Shading Language (MSL) at runtime.
+- Update shader uniforms from `update(_:)` — never create new `SKShader` instances per frame.
+- Use `SKRenderer` only when mixing SpriteKit content into an existing Metal render loop; for pure SpriteKit apps, use `SKView`.
+- Cache complex static node hierarchies with `view?.texture(from:)` and replace the node tree with a single `SKSpriteNode` using the cached texture.
+- Set `shouldRasterize = true` on `SKEffectNode` whenever the filtered content does not change every frame — this caches the filter output to a bitmap.
+- Use `SKLightNode` with normal-map textures for dynamic lighting. Bake lighting into textures for static scenes — runtime lighting is expensive.
+- Configure `renderer.ignoresSiblingOrder = true` and `renderer.shouldCullNonVisibleNodes = true` when using `SKRenderer`.
 
----
+## Available Shader Variables
 
-## Custom Shaders
+| Variable | Type | Description |
+|----------|------|-------------|
+| `v_tex_coord` | `vec2` | Texture UV coordinates |
+| `u_texture` | `sampler2D` | Node's texture |
+| `v_color_mix` | `vec4` | Color blend factor |
+| `u_sprite_size` | `vec2` | Sprite size in points |
+| `u_path_length` | `float` | Path length (SKShapeNode) |
 
-> **⚠️ Important:** Modern SpriteKit uses **Metal** as its rendering backend (since iOS 12/macOS 10.14). While shader syntax remains GLSL-compatible for ease of use, SpriteKit automatically translates your shaders to Metal Shading Language (MSL) at runtime.
-
-### SKShader Basics
-
-```swift
-// Create shader from string
-// Note: SpriteKit uses GLSL-compatible syntax but renders via Metal
-let shaderSource = """
-    void main() {
-        vec2 uv = v_tex_coord;
-        vec4 color = texture2D(u_texture, uv);
-
-        // Invert colors
-        gl_FragColor = vec4(1.0 - color.rgb, color.a);
-    }
-"""
-
-let shader = SKShader(source: shaderSource)
-sprite.shader = shader
-```
-
-**Available SpriteKit Shader Variables:**
-- `v_tex_coord` - Texture coordinates (vec2)
-- `u_texture` - The node's texture (sampler2D)
-- `v_color_mix` - Color blend factor (vec4)
-- `u_path_length` - Path length for SKShapeNode (float)
-- `u_sprite_size` - Sprite size in points (vec2)
-
-### Shader with Uniforms
+## Shader with Uniform
 
 ```swift
-let pulseShader = SKShader(source: """
+let shader = SKShader(source: """
     uniform float u_time;
-
     void main() {
-        vec2 uv = v_tex_coord;
+        vec4 color = texture2D(u_texture, v_tex_coord);
         float pulse = sin(u_time * 5.0) * 0.5 + 0.5;
-        vec4 color = texture2D(u_texture, uv);
         gl_FragColor = vec4(color.rgb * pulse, color.a);
     }
 """)
-
-// Add uniform
 let timeUniform = SKUniform(name: "u_time", float: 0)
-pulseShader.addUniform(timeUniform)
+shader.addUniform(timeUniform)
+sprite.shader = shader
 
-// Update in update loop
+// Update in update(_:), not per event
 override func update(_ currentTime: TimeInterval) {
     timeUniform.floatValue = Float(currentTime)
 }
 ```
 
----
+## Caching Complex Node Trees
 
-## SKRenderer - Metal Integration
+```swift
+// Render once, use as static sprite
+let complexNode = SKNode()
+// ... add many children ...
+if let texture = view?.texture(from: complexNode) {
+    complexNode.removeFromParent()
+    let cached = SKSpriteNode(texture: texture)
+    addChild(cached)
+}
 
-Use `SKRenderer` to mix SpriteKit content with custom Metal rendering. This is useful when:
-- You have an existing Metal app and want to add SpriteKit content
-- You need precise control over render order (z-position)
-- You want to apply custom Metal shaders as post-processing
+// Alternatively, rasterize in place
+let effectNode = SKEffectNode()
+effectNode.shouldRasterize = true  // Re-renders only when content changes
+addChild(effectNode)
+```
 
-### Basic SKRenderer Setup
+## SKRenderer Setup (Metal Integration)
 
 ```swift
 import Metal
 import SpriteKit
 
-class MetalSpriteKitMixer {
-    var renderer: SKRenderer!
-    var scene: SKScene!
-    var device: MTLDevice!
+class MetalGameRenderer {
+    let renderer: SKRenderer
+    let scene: SKScene
 
-    func setup(device: MTLDevice) {
-        self.device = device
+    init(device: MTLDevice) {
         renderer = SKRenderer(device: device)
-
+        renderer.ignoresSiblingOrder = true
+        renderer.shouldCullNonVisibleNodes = true
         scene = GameScene(size: CGSize(width: 1024, height: 768))
         renderer.scene = scene
     }
 
-    func update(atTime time: TimeInterval) {
-        // Drive the scene's update cycle
-        renderer.update(atTime: time)
-    }
-
-    func render(in view: MTKView, commandBuffer: MTLCommandBuffer) {
-        guard let renderPassDescriptor = view.currentRenderPassDescriptor else { return }
-
-        let viewport = CGRect(
-            x: 0, y: 0,
-            width: view.drawableSize.width,
-            height: view.drawableSize.height
-        )
-
-        // Render SpriteKit scene into Metal command buffer
-        renderer.render(
-            withViewport: viewport,
-            commandBuffer: commandBuffer,
-            renderPassDescriptor: renderPassDescriptor
-        )
+    func draw(in view: MTKView, commandBuffer: MTLCommandBuffer) {
+        renderer.update(atTime: CACurrentMediaTime())
+        guard let rpd = view.currentRenderPassDescriptor else { return }
+        let viewport = CGRect(origin: .zero, size: view.drawableSize)
+        renderer.render(withViewport: viewport,
+                        commandBuffer: commandBuffer,
+                        renderPassDescriptor: rpd)
     }
 }
 ```
 
-### Rendering SpriteKit Between Metal Passes
-
-```swift
-func renderMixedContent(view: MTKView, commandQueue: MTLCommandQueue) {
-    guard let commandBuffer = commandQueue.makeCommandBuffer(),
-          let renderPassDescriptor = view.currentRenderPassDescriptor else { return }
-
-    // 1. First render your custom Metal content
-    let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
-    // ... custom Metal rendering ...
-    encoder?.endEncoding()
-
-    // 2. Render SpriteKit content on top
-    let viewport = CGRect(origin: .zero, size: view.drawableSize)
-    renderer.render(
-        withViewport: viewport,
-        commandBuffer: commandBuffer,
-        renderPassDescriptor: renderPassDescriptor
-    )
-
-    // 3. Continue with more Metal rendering if needed
-    let finalEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
-    // ... final Metal pass ...
-    finalEncoder?.endEncoding()
-
-    commandBuffer.present(view.currentDrawable!)
-    commandBuffer.commit()
-}
-```
-
-### SKRenderer Performance Options
-
-```swift
-// Configure performance settings
-renderer.ignoresSiblingOrder = true        // Optimize draw order
-renderer.shouldCullNonVisibleNodes = true  // Automatically cull off-screen nodes
-
-// Debug visualization
-renderer.showsNodeCount = true
-renderer.showsDrawCount = true
-renderer.showsQuadCount = true
-renderer.showsPhysics = true
-renderer.showsFields = true
-```
-
----
-
-## Offscreen Rendering
-
-### SKRenderTexture
-
-```swift
-func createSnapshot() -> SKTexture {
-    let renderTexture = SKRenderTexture(size: size)
-    renderTexture.render(self)
-    return renderTexture.texture
-}
-```
-
-### Caching Complex Nodes
-
-```swift
-let complexNode = SKNode()
-// Add many children...
-
-// Render to texture once
-let texture = view?.texture(from: complexNode)
-let cachedSprite = SKSpriteNode(texture: texture)
-
-// Use cached sprite instead of complex node
-addChild(cachedSprite)
-```
-
----
-
-## Lighting Effects
-
-### SKLightNode
+## Dynamic Lighting
 
 ```swift
 func setupLighting() {
-    // Normal map for lighting
     let sprite = SKSpriteNode(imageNamed: "character")
-    sprite.normalTexture = SKTexture(imageNamed: "character_normal")
-
-    // Light source
-    let light = SKLightNode()
-    light.categoryBitMask = 1
-    light.falloff = 1.0
-    light.ambientColor = .darkGray
-    light.lightColor = .white
-    light.shadowColor = .black.withAlphaComponent(0.5)
-
-    addChild(light)
-
-    // Sprite responds to light
+    sprite.normalTexture = SKTexture(imageNamed: "character_normal")  // Required for lighting
     sprite.lightingBitMask = 1
     sprite.shadowCastBitMask = 1
+
+    let light = SKLightNode()
+    light.categoryBitMask = 1
+    light.falloff = 1.5
+    light.ambientColor = UIColor(white: 0.2, alpha: 1)
+    light.lightColor = .white
+    light.shadowColor = UIColor(white: 0, alpha: 0.6)
+    addChild(light)
+    addChild(sprite)
 }
 ```
-
----
-
-## Checklist
-
-- [ ] Use shaders for custom effects
-- [ ] Cache offscreen rendered content
-- [ ] Update shader uniforms efficiently
-- [ ] Use normal maps for lighting
-- [ ] Test shader performance on target devices
-- [ ] Use SKRenderer for mixing SpriteKit with Metal
-- [ ] Configure `ignoresSiblingOrder` and `shouldCullNonVisibleNodes` for SKRenderer

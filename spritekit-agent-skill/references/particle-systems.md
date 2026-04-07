@@ -1,130 +1,68 @@
 # Particle Systems
 
-Best practices for SKEmitterNode configuration and optimization.
+- Use `SKEmitterNode(fileNamed:)` over programmatic creation for effects designed in Xcode's particle editor.
+- Set `targetNode = scene` (or the world layer) on emitters attached to moving nodes — this causes particles to persist in world space after the emitter moves.
+- Always set `numParticlesToEmit` for one-shot effects (explosions, impacts) so the emitter stops automatically.
+- Use `additive` blend mode (`particleBlendMode = .add`) instead of `alpha` — faster rendering and produces correct glow/fire look.
+- Disable unused particle properties (`particleRotationSpeed = 0`, `fieldBitMask = 0`) — unused channels still incur evaluation cost.
+- Use small, simple particle textures (< 64×64) — large textures multiply GPU texture bandwidth.
+- Remove emitters after one-shot effects complete; do not leave dead emitters in the node tree.
+- Pool frequently reused emitters with `resetSimulation()` on release — recreating from file on every spawn is expensive.
+- Keep total live particles below 1000–2000 on iPhone, 3000–5000 on Apple TV.
 
----
+## Particle Count Limits
 
-## Emitter Creation
+| Device | Max Concurrent Particles | Max Emitters |
+|--------|--------------------------|--------------|
+| iPhone | 1000–2000 | 5–10 |
+| iPad | 2000–4000 | 10–15 |
+| Apple TV | 3000–5000 | 10–20 |
 
-### Programmatic Creation
+## One-Shot Effect (Auto-Remove)
 
 ```swift
-func createFireEmitter() -> SKEmitterNode {
-    let emitter = SKEmitterNode()
+func spawnExplosion(at position: CGPoint) {
+    guard let emitter = SKEmitterNode(fileNamed: "Explosion") else { return }
+    emitter.position = position
+    emitter.targetNode = self
+    emitter.numParticlesToEmit = 80  // Auto-stops after 80 particles
+    worldLayer.addChild(emitter)
 
-    // Particle texture
-    emitter.particleTexture = SKTexture(imageNamed: "spark")
-
-    // Emission rate
-    emitter.particleBirthRate = 100
-    emitter.numParticlesToEmit = 0  // 0 = infinite
-
-    // Particle lifetime
-    emitter.particleLifetime = 1.0
-    emitter.particleLifetimeRange = 0.5
-
-    // Position
-    emitter.position = CGPoint(x: 0, y: 0)
-    emitter.particlePositionRange = CGVector(dx: 20, dy: 0)
-
-    // Movement
-    emitter.emissionAngle = .pi / 2  // Up
-    emitter.emissionAngleRange = .pi / 8
-    emitter.particleSpeed = 100
-    emitter.particleSpeedRange = 50
-
-    // Physics
-    emitter.xAcceleration = 0
-    emitter.yAcceleration = -50  // Gravity
-
-    // Scale
-    emitter.particleScale = 1.0
-    emitter.particleScaleRange = 0.5
-    emitter.particleScaleSpeed = -0.5  // Shrink over time
-
-    // Rotation
-    emitter.particleRotation = 0
-    emitter.particleRotationRange = .pi
-    emitter.particleRotationSpeed = 2.0
-
-    // Color
-    emitter.particleColor = .orange
-    emitter.particleColorBlendFactor = 1.0
-    emitter.particleColorSequence = SKKeyframeSequence(
-        keyframeValues: [UIColor.red, UIColor.orange, UIColor.yellow, UIColor.clear],
-        times: [0, 0.3, 0.7, 1]
-    )
-
-    // Alpha
-    emitter.particleAlpha = 1.0
-    emitter.particleAlphaRange = 0.2
-    emitter.particleAlphaSpeed = -1.0  // Fade out
-
-    // Blend mode
-    emitter.particleBlendMode = .add
-
-    return emitter
+    // Remove after particles have lived out their lifetime
+    let lifetime = emitter.particleLifetime + emitter.particleLifetimeRange
+    emitter.run(SKAction.sequence([
+        SKAction.wait(forDuration: TimeInterval(lifetime)),
+        SKAction.removeFromParent()
+    ]))
 }
 ```
 
-### Loading from File
+## World-Space Particles on Moving Emitter
 
 ```swift
-// Correct: Load pre-configured emitter
-if let emitter = SKEmitterNode(fileNamed: "FireParticle") {
-    emitter.position = CGPoint(x: size.width / 2, y: size.height / 2)
-    addChild(emitter)
-}
-
-// Target a specific node
-emitter.targetNode = self  // Particles render relative to scene
+// Attached to ship but particles trail in world space
+let thruster = SKEmitterNode(fileNamed: "Thruster")!
+thruster.targetNode = worldLayer  // Particles stay in world after ship moves
+ship.addChild(thruster)
 ```
 
----
-
-## Performance Guidelines
-
-### Particle Count Limits
-
-| Device | Max Particles | Max Emitters |
-|--------|--------------|--------------|
-| iPhone | 1000-2000 | 5-10 |
-| iPad | 2000-4000 | 10-15 |
-| Apple TV | 3000-5000 | 10-20 |
-
-### Optimization Techniques
-
-```swift
-// Limit concurrent particles
-emitter.numParticlesToEmit = 100  // Emit only 100 then stop
-
-// Use simple textures
-emitter.particleTexture = SKTexture(imageNamed: "simple_circle")  // Small, simple
-
-// Reduce overdraw with additive blending
-emitter.particleBlendMode = .add  // Faster than alpha
-
-// Disable unnecessary features
-emitter.particleRotationSpeed = 0  // If not needed
-emitter.fieldBitMask = 0  // If not using physics fields
-```
-
-### Pooling Emitters
+## Emitter Pool
 
 ```swift
 class EmitterPool {
     private var available: [SKEmitterNode] = []
-    private let create: () -> SKEmitterNode
+    private let fileName: String
 
-    init(create: @escaping () -> SKEmitterNode, capacity: Int) {
-        self.create = create
-        for _ in 0..<capacity {
-            available.append(create())
+    init(fileName: String, capacity: Int) {
+        self.fileName = fileName
+        (0..<capacity).forEach { _ in
+            if let e = SKEmitterNode(fileNamed: fileName) { available.append(e) }
         }
     }
 
-    func acquire() -> SKEmitterNode {
-        return available.popLast() ?? create()
+    func acquire() -> SKEmitterNode? {
+        let emitter = available.popLast() ?? SKEmitterNode(fileNamed: fileName)
+        return emitter
     }
 
     func release(_ emitter: SKEmitterNode) {
@@ -135,53 +73,12 @@ class EmitterPool {
 }
 ```
 
----
-
-## Common Particle Types
-
-### Explosion Effect
+## Additive vs Alpha Blend Mode
 
 ```swift
-func createExplosion() -> SKEmitterNode {
-    let emitter = SKEmitterNode()
-    emitter.particleTexture = SKTexture(imageNamed: "spark")
-    emitter.particleBirthRate = 1000
-    emitter.numParticlesToEmit = 100  // One-time burst
-    emitter.particleLifetime = 0.5
-    emitter.particleSpeed = 200
-    emitter.particleSpeedRange = 100
-    emitter.emissionAngleRange = .pi * 2  // All directions
-    emitter.particleScaleSpeed = -2.0
-    emitter.particleAlphaSpeed = -2.0
-    emitter.particleBlendMode = .add
-    return emitter
-}
+// Preferred for fire, sparks, glow effects
+emitter.particleBlendMode = .add    // Faster, no overdraw depth sorting
+
+// Use only when true transparency/overlap is required
+emitter.particleBlendMode = .alpha
 ```
-
-### Trail Effect
-
-```swift
-func createTrail() -> SKEmitterNode {
-    let emitter = SKEmitterNode()
-    emitter.particleTexture = SKTexture(imageNamed: "trail")
-    emitter.particleBirthRate = 50
-    emitter.particleLifetime = 0.5
-    emitter.particleSpeed = 0  // Follow emitter position
-    emitter.particleScaleSpeed = -0.5
-    emitter.particleAlphaSpeed = -1.0
-    return emitter
-}
-```
-
----
-
-## Checklist
-
-- [ ] Use small, simple particle textures
-- [ ] Limit total concurrent particles
-- [ ] Set `numParticlesToEmit` for one-shot effects
-- [ ] Use additive blending when possible
-- [ ] Pool frequently used emitters
-- [ ] Set `targetNode` for correct rendering
-- [ ] Disable unused features (rotation, fields)
-- [ ] Remove emitters when effects complete

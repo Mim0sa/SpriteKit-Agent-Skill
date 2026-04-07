@@ -1,8 +1,6 @@
 ## SpriteKit Agent Skill
 
-Expert guidance for any AI coding tool  — SpriteKit scene architecture, physics patterns, performance optimization, and cross-platform game development.
-
-This repository distills practical SpriteKit best practices into actionable, concise references for agents and code review workflows.
+Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects.
 
 ## License
 
