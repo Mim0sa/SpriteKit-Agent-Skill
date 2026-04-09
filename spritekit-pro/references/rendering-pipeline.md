@@ -1,6 +1,6 @@
 # Rendering Pipeline
 
-- SpriteKit uses Metal as its rendering backend on all platforms (iOS 12+ / macOS 10.14+). SKShader source is GLSL-compatible syntax but compiled to Metal Shading Language (MSL) at runtime.
+- SpriteKit uses Metal as its rendering backend on all platforms since iOS 9 / OS X 10.11. SKShader source is GLSL-compatible syntax but compiled to Metal Shading Language (MSL) at runtime.
 - Update shader uniforms from `update(_:)` — never create new `SKShader` instances per frame.
 - Use `SKRenderer` only when mixing SpriteKit content into an existing Metal render loop; for pure SpriteKit apps, use `SKView`.
 - Cache complex static node hierarchies with `view?.texture(from:)` and replace the node tree with a single `SKSpriteNode` using the cached texture.

@@ -62,7 +62,7 @@ override func update(_ currentTime: TimeInterval) {
         y: camera.position.y - size.height / 2 - 100,
         width: size.width + 200, height: size.height + 200
     )
-    worldLayer.enumerateChildNodes(withName: "//.*") { node, _ in
+    worldLayer.children.forEach { node in
         let visible = cullRect.intersects(node.calculateAccumulatedFrame())
         node.isPaused = !visible
         node.isHidden = !visible

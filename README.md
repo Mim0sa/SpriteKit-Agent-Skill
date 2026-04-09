@@ -1,5 +1,7 @@
 ## SpriteKit Agent Skill
 
+## spritekit-pro
+
 Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects.
 
 ## License

@@ -1,5 +1,5 @@
 ---
-name: spritekit-agent-skill
+name: spritekit-pro
 description: Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects.
 license: MIT
 metadata:
@@ -31,7 +31,7 @@ If doing a partial review, load only the relevant reference files.
 
 ## Core Instructions
 
-- iOS 18 / macOS 15 / tvOS 18 are the current deployment targets for new projects.
+- SpriteKit minimum supported versions: iOS 7 / macOS 10.9 / tvOS 9 / watchOS 3.
 - SpriteKit renders via Metal on all platforms — GLSL shader syntax is supported but compiled to MSL at runtime.
 - Do not introduce third-party game frameworks without asking first.
 - SpriteKit is not supported in native visionOS apps; always recommend RealityKit for native visionOS targets.

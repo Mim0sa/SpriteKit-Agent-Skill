@@ -28,8 +28,9 @@ func spawnExplosion(at position: CGPoint) {
     emitter.numParticlesToEmit = 80  // Auto-stops after 80 particles
     worldLayer.addChild(emitter)
 
-    // Remove after particles have lived out their lifetime
-    let lifetime = emitter.particleLifetime + emitter.particleLifetimeRange
+    // Remove after particles have lived out their lifetime.
+    // particleLifetimeRange varies ±half its value, so max lifetime = base + range/2.
+    let lifetime = emitter.particleLifetime + emitter.particleLifetimeRange / 2
     emitter.run(SKAction.sequence([
         SKAction.wait(forDuration: TimeInterval(lifetime)),
         SKAction.removeFromParent()

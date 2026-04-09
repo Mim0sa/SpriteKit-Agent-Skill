@@ -80,11 +80,13 @@ class GameScene: SKScene {
 ```swift
 class GameScene: SKScene {
     override func didMove(to view: SKView) {
-        guard let engine = self.audioEngine else { return }
+        let engine = self.audioEngine  // Non-optional — always present on SKScene
         let reverb = AVAudioUnitReverb()
         reverb.loadFactoryPreset(.mediumHall)
         reverb.wetDryMix = 25
         engine.attach(reverb)
+        // Disconnect the existing mainMixerNode → outputNode path before inserting reverb
+        engine.disconnectNodeOutput(engine.mainMixerNode)
         engine.connect(engine.mainMixerNode, to: reverb, format: nil)
         engine.connect(reverb, to: engine.outputNode, format: nil)
     }
