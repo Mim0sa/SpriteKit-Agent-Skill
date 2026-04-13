@@ -1,13 +1,12 @@
 # Asset Management
 
 - Use texture atlases (`.atlas` folders) for all related sprites — tiles and animation frames from the same atlas batch into a single draw call.
-- Preload atlases with `SKTextureAtlas.preloadTextureAtlasesNamed(_:withCompletionHandler:)` from a loading scene before gameplay begins.
+- Preload atlases with `SKTextureAtlas.preloadTextureAtlasesNamed(_:withCompletionHandler:)` from a loading scene before gameplay begins. In Swift concurrency contexts, use the async variant `SKTextureAtlas.preloadTextureAtlasesNamed(_:) async throws -> [SKTextureAtlas]`.
 - Preload large individual textures with `SKTexture.preload(_:withCompletionHandler:)` — loading on first use causes frame drops.
 - Always call completion handlers on the main thread after background preloading finishes.
 - Set texture filtering mode once when loading: use `.nearest` for pixel art, `.linear` (default) for smooth/HD art. Never change it per frame.
-- Call `SKTexture.purgeTextureCache()` in response to memory warnings and when switching between major scenes.
-- Release atlas references when their content is no longer needed (e.g. transitioning out of a level).
-- Use power-of-2 tile sizes (32, 64, 128) for optimal GPU texture performance.
+- Release texture and atlas references when transitioning between major scenes — textures stay in GPU memory until the referencing `SKTexture` object is deallocated. Nil out unused texture/atlas properties to reclaim GPU memory.
+- Prefer power-of-2 tile sizes (32, 64, 128) when targeting older devices — modern Apple Silicon handles non-power-of-2 textures efficiently.
 
 ## Atlas Preloading Strategy
 
@@ -60,8 +59,10 @@ atlas.textureNames.forEach { name in
 ```swift
 class GameScene: SKScene {
     func handleMemoryWarning() {
-        SKTexture.purgeTextureCache()
+        // Release atlas references — textures are freed when no SKTexture references remain
         unusedAtlases.removeAll()
+        // Release any cached textures by nil-ing properties that hold them
+        cachedTextures = nil
     }
 }
 ```

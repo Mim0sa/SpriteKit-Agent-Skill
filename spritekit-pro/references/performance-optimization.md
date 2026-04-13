@@ -9,9 +9,10 @@
 - Reuse `SKAction` instances as `static let` constants rather than recreating them per spawn.
 - Use `shouldRasterize = true` on `SKEffectNode` layers that are static or change infrequently — caches filtered output to a bitmap.
 - Batch draw calls by grouping nodes that share the same texture together in the node tree.
-- Use `SKTexture.purgeTextureCache()` when switching major scenes to reclaim GPU memory.
+- Release texture and atlas references when switching major scenes — textures stay in GPU memory until the referencing `SKTexture` object is deallocated.
 - Prefer `additive` blend mode over `alpha` for particles — additive is faster and avoids overdraw cost.
 - Call `view.preferredFramesPerSecond = 30` for turn-based or low-action games to save battery.
+- Avoid `SKShapeNode` for frequently updated or numerous shapes — it regenerates geometry on every property change. Use `SKSpriteNode` with a pre-rendered texture instead.
 
 ## Debug Overlays (DEBUG only)
 

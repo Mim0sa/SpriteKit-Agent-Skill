@@ -5,6 +5,7 @@
 - Set `scene.listener` to the player node to enable automatic 3D panning and attenuation for all positional audio. SpriteKit tracks the listener node's position automatically — do not manually sync it in `update(_:)`.
 - Remove one-shot sound nodes from the parent after playback — orphaned `SKAudioNode` instances leak memory.
 - Use `SKAction.changeVolume(to:duration:)` to fade music in and out — never jump volume abruptly.
+- Use `SKAction.stereoPan(to:duration:)` for stereo panning, `SKAction.changePlaybackRate(to:duration:)` for speed changes, `SKAction.changeObstruction(to:duration:)` for direct-path damping, and `SKAction.changeOcclusion(to:duration:)` for full-path damping (including reverb).
 - Use `AVAudioEngine` directly when you need effects chains (reverb, EQ, compression) beyond what `SKAudioNode` exposes.
 - Prefer `.wav` for short sound effects (lower decode latency) and `.mp3` or `.m4a` for background music (better compression).
 
@@ -37,16 +38,17 @@ class GameScene: SKScene {
 ## One-Shot Sound Effect
 
 ```swift
-func playSFX(named name: String) {
+func playSFX(named name: String, duration: TimeInterval = 2.0) {
     guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else { return }
     let sfx = SKAudioNode(url: url)
     sfx.autoplayLooped = false
     sfx.isPositional = false
     addChild(sfx)
 
-    // Auto-remove after playback (use actual duration if known)
+    // autoplayLooped = false means the node does NOT play on add — trigger it explicitly
     sfx.run(SKAction.sequence([
-        SKAction.wait(forDuration: 2.0),
+        SKAction.play(),
+        SKAction.wait(forDuration: duration),
         SKAction.removeFromParent()
     ]))
 }

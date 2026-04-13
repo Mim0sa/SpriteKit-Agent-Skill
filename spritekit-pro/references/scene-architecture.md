@@ -10,6 +10,8 @@
 - `SKScene` is a subclass of `SKEffectNode` — applying effects to the entire scene is expensive. Apply effects to specific layer nodes instead, and set `shouldRasterize = true` to cache the output.
 - Never create or add nodes inside `update(_:)` — use object pooling instead.
 - Size nodes relative to `scene.size`, not hardcoded values.
+- Use `SKSceneDelegate` instead of subclassing `SKScene` when multiple scenes share the same frame-cycle logic — set `scene.delegate` and implement the `SKSceneDelegate` protocol methods (`update(_:for:)`, `didSimulatePhysics(for:)`, etc.).
+- Set `anchorPoint` to control where the scene's `(0, 0)` maps within the view — `(0.5, 0.5)` centers it (default), `(0, 0)` places it at bottom-left. When a camera is active, `anchorPoint` has no effect on visible content.
 
 ## Layered Scene Setup
 
@@ -81,5 +83,39 @@ override func update(_ currentTime: TimeInterval) {
     // Clamp to world bounds
     worldCamera.position.x = min(max(worldCamera.position.x, worldBounds.minX), worldBounds.maxX)
     worldCamera.position.y = min(max(worldCamera.position.y, worldBounds.minY), worldBounds.maxY)
+}
+```
+
+## SKSceneDelegate — Shared Logic Across Scenes
+
+```swift
+// Use a delegate when multiple scenes share the same frame-cycle logic
+class GameSceneDelegate: NSObject, SKSceneDelegate {
+    private var lastUpdateTime: TimeInterval = 0
+
+    func update(_ currentTime: TimeInterval, for scene: SKScene) {
+        let rawDelta = lastUpdateTime > 0 ? currentTime - lastUpdateTime : 0
+        lastUpdateTime = currentTime
+        guard let gameScene = scene as? GameScene else { return }
+        gameScene.entityManager.update(deltaTime: min(rawDelta, 1.0 / 20.0))
+    }
+
+    func didSimulatePhysics(for scene: SKScene) {
+        guard let gameScene = scene as? GameScene else { return }
+        gameScene.processDeferredRemovals()
+    }
+}
+
+// In view controller — hold a strong reference, then assign to scene.delegate
+class GameViewController: UIViewController {
+    var gameDelegate: GameSceneDelegate?  // Strong reference — delegate is weak on SKScene
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let scene = GameScene(size: view.bounds.size)
+        gameDelegate = GameSceneDelegate()
+        scene.delegate = gameDelegate
+        (view as? SKView)?.presentScene(scene)
+    }
 }
 ```

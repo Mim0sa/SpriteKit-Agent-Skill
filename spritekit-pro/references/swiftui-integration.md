@@ -5,7 +5,7 @@
 - Pass shared state via `@Observable` (iOS 17+) or `ObservableObject` (iOS 13+). Never expose game state through global singletons.
 - Hold a `weak` reference to shared state objects inside `SKScene` — a strong reference creates a retain cycle between the scene and the SwiftUI state.
 - Update SwiftUI state from SpriteKit only on the main actor — `SKScene` callbacks run on the main thread, but confirm this when using async dispatch.
-- Use `UIViewControllerRepresentable` only when you need `SKView` configuration not exposed by `SpriteView` (e.g. custom `preferredFramesPerSecond`).
+- `SpriteView` provides three initializers: basic (`scene:transition:isPaused:preferredFramesPerSecond:`), with rendering options (`...options:shouldRender:`), and with debug overlays (`...options:debugOptions:shouldRender:`). Prefer these over `UIViewControllerRepresentable`.
 - Pause/resume the scene in response to SwiftUI lifecycle events (`onAppear`/`onDisappear` or `.onChange(of: scenePhase)`).
 
 ## Stable Scene Creation

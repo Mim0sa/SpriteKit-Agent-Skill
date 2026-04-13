@@ -6,7 +6,7 @@
 - Enable `tileMap.enableAutomapping = true` when using adjacency rule tile groups — without it, adjacent tiles will not update automatically.
 - Never create one `SKPhysicsBody` per tile — combine adjacent solid tiles into a single rectangle body to minimize physics overhead.
 - For large worlds, split the map into chunk nodes and load/unload chunks based on camera proximity.
-- `SKTileMapNode` defaults to `anchorPoint = (0.5, 0.5)` like all `SKNode` subclasses — its bottom-left corner is at `(-width/2, -height/2)` in parent coordinates. Explicitly set the anchor point when you need a different origin.
+- `SKTileMapNode` defaults to `anchorPoint = (0.5, 0.5)` — its bottom-left corner is at `(-width/2, -height/2)` in parent coordinates. Explicitly set the anchor point when you need a different origin.
 - Avoid `SKTileMapNode` for fewer than ~20 tiles — individual `SKSpriteNode` instances are simpler and equally performant at that scale.
 
 ## Tile Map Size Guidelines

@@ -1,6 +1,6 @@
 # Rendering Pipeline
 
-- SpriteKit uses Metal as its rendering backend on all platforms since iOS 9 / OS X 10.11. SKShader source is GLSL-compatible syntax but compiled to Metal Shading Language (MSL) at runtime.
+- SpriteKit uses Metal as its rendering backend on all platforms since iOS 9 / OS X 10.11. SKShader source must be written in the **OpenGL ES 2.0 shading language** — SpriteKit compiles it for the Metal backend internally.
 - Update shader uniforms from `update(_:)` — never create new `SKShader` instances per frame.
 - Use `SKRenderer` only when mixing SpriteKit content into an existing Metal render loop; for pure SpriteKit apps, use `SKView`.
 - Cache complex static node hierarchies with `view?.texture(from:)` and replace the node tree with a single `SKSpriteNode` using the cached texture.
@@ -10,13 +10,34 @@
 
 ## Available Shader Variables
 
+SpriteKit automatically declares these symbols in the shader preamble — you do not need to declare them yourself:
+
 | Variable | Type | Description |
 |----------|------|-------------|
-| `v_tex_coord` | `vec2` | Texture UV coordinates |
-| `u_texture` | `sampler2D` | Node's texture |
-| `v_color_mix` | `vec4` | Color blend factor |
-| `u_sprite_size` | `vec2` | Sprite size in points |
-| `u_path_length` | `float` | Path length (SKShapeNode) |
+| `v_tex_coord` | `vec2` | Texture UV coordinates (0–1) |
+| `u_texture` | `sampler2D` | Node's current texture |
+| `v_color_mix` | `vec4` | Color blend factor from the node's `color`/`colorBlendFactor` |
+| `u_time` | `float` | Elapsed time since the scene started (seconds) |
+| `u_path_length` | `float` | Total path length (only for `SKShapeNode`) |
+| `SKDefaultShading()` | `vec4` | Built-in function that returns the default SpriteKit fragment color — use it to blend custom effects with the standard rendering result |
+
+## Passing Custom Data to Shaders
+
+`u_sprite_size` is **not** a built-in SpriteKit symbol. To access sprite size in a shader, pass it yourself via `SKUniform` (global for all sprites) or `SKAttribute` (per-node values).
+
+```swift
+// Via SKUniform — same value for all sprites using this shader
+let spriteSize = vector_float2(Float(sprite.frame.size.width),
+                               Float(sprite.frame.size.height))
+let sizeUniform = SKUniform(name: "u_sprite_size", vectorFloat2: spriteSize)
+shader.addUniform(sizeUniform)
+
+// Via SKAttribute — per-node value, no recompilation when changed
+let sizeAttribute = SKAttribute(name: "a_sprite_size", type: .vectorFloat2)
+shader.attributes = [sizeAttribute]
+sprite.setValue(SKAttributeValue(vectorFloat2Value: spriteSize),
+                forAttribute: "a_sprite_size")
+```
 
 ## Shader with Uniform
 

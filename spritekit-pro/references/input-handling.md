@@ -5,6 +5,7 @@
 - Abstract platform input behind a protocol so game logic does not contain `#if os()` branching.
 - For tvOS, handle the Siri Remote menu button via `UITapGestureRecognizer` with `allowedPressTypes = [.menu]`.
 - For macOS, implement `mouseMoved` only when hover/aim feedback is required — it fires constantly and adds cost.
+- For macOS keyboard input, override `keyDown(with:)` and `keyUp(with:)` on `SKScene` — call `super` for unhandled keys to avoid swallowing system shortcuts.
 - Use `gesture recognizers` added to the `SKView` for complex gestures (pinch, pan, double-tap) rather than reimplementing them from raw touch events.
 - Convert gesture recognizer coordinates with `convertPoint(fromView:)` before using them in scene space.
 - Bind game controller handlers with `[weak self]` — `GCController` holds strong references to closures.

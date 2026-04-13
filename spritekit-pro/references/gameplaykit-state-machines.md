@@ -1,0 +1,170 @@
+# GameplayKit — State Machines
+
+- Use `GKStateMachine` for any entity with 2+ mutually exclusive behavioral modes — boolean flags become unmanageable beyond 2 states.
+- Define transition validity in `isValidNextState(_:)` on every `GKState` subclass — the machine enforces it; never call `enter(_:)` without this guard.
+- Use `didEnter(from:)` for side effects that happen once on entry (play animation, change tint, enable component) — not in `update(deltaTime:)`.
+- Use `willExit(to:)` for cleanup that depends on the *next* state (e.g., stop a looping action only when transitioning to Dead, not Idle).
+- Call `stateMachine.update(deltaTime:)` from the entity's or scene's `update(_:)` — the machine forwards the call to `currentState.update(deltaTime:)`.
+- Use `canEnterState(_:)` before attempting a transition in response to external events (e.g., damage received) — avoids silent no-ops that are hard to debug.
+- Keep `GKState` subclasses lightweight — hold only a `weak` reference back to the owning entity or component, never retain the scene or other entities strongly.
+- Model game UI flow (Menu → Playing → Paused → GameOver) with a top-level `GKStateMachine` in `GameScene` — centralizes which systems run per state.
+
+## State Subclass Template
+
+```swift
+class EnemyChaseState: GKState {
+    // Weak reference avoids retain cycle with the owning entity
+    private weak var enemy: EnemyEntity?
+
+    init(enemy: EnemyEntity) { self.enemy = enemy; super.init() }
+
+    // Declare which transitions are legal FROM this state
+    override func isValidNextState(_ stateClass: AnyClass) -> Bool {
+        stateClass == EnemyFleeState.self || stateClass == EnemyDeadState.self
+    }
+
+    // One-shot setup on entry
+    override func didEnter(from previousState: GKState?) {
+        enemy?.sprite.color = .red
+        enemy?.chaseComponent?.isEnabled = true
+    }
+
+    // Per-frame logic
+    override func update(deltaTime seconds: TimeInterval) {
+        guard let enemy else { return }
+        if enemy.healthComponent.isDead {
+            stateMachine?.enter(EnemyDeadState.self)
+        }
+    }
+
+    // Cleanup on exit — knows the next state
+    override func willExit(to nextState: GKState) {
+        enemy?.chaseComponent?.isEnabled = false
+        if nextState is EnemyDeadState {
+            enemy?.sprite.color = .gray
+        }
+    }
+}
+```
+
+## Full Enemy State Machine
+
+```swift
+class EnemyEntity: GKEntity {
+    var stateMachine: GKStateMachine!
+    var sprite: SKSpriteNode!
+
+    func setupStateMachine() {
+        let idle   = EnemyIdleState(enemy: self)
+        let chase  = EnemyChaseState(enemy: self)
+        let flee   = EnemyFleeState(enemy: self)
+        let dead   = EnemyDeadState(enemy: self)
+        stateMachine = GKStateMachine(states: [idle, chase, flee, dead])
+        stateMachine.enter(EnemyIdleState.self)
+    }
+
+    override func update(deltaTime seconds: TimeInterval) {
+        super.update(deltaTime: seconds)
+        stateMachine.update(deltaTime: seconds)  // Forward to current state
+    }
+}
+
+class EnemyIdleState: GKState {
+    private weak var enemy: EnemyEntity?
+    private var idleTimer: TimeInterval = 0
+
+    init(enemy: EnemyEntity) { self.enemy = enemy; super.init() }
+
+    override func isValidNextState(_ stateClass: AnyClass) -> Bool {
+        stateClass == EnemyChaseState.self
+    }
+
+    override func didEnter(from previousState: GKState?) {
+        idleTimer = 0
+        enemy?.sprite.removeAction(forKey: "move")
+    }
+
+    override func update(deltaTime seconds: TimeInterval) {
+        idleTimer += seconds
+        if idleTimer > 2.0 {
+            stateMachine?.enter(EnemyChaseState.self)
+        }
+    }
+}
+
+class EnemyDeadState: GKState {
+    private weak var enemy: EnemyEntity?
+
+    init(enemy: EnemyEntity) { self.enemy = enemy; super.init() }
+
+    // Dead is terminal — no valid next states
+    override func isValidNextState(_ stateClass: AnyClass) -> Bool { false }
+
+    override func didEnter(from previousState: GKState?) {
+        enemy?.component(ofType: SpriteComponent.self)?.node.run(
+            .sequence([.fadeOut(withDuration: 0.4), .removeFromParent()])
+        )
+    }
+}
+```
+
+## Game UI State Machine
+
+```swift
+// Top-level scene state — controls which systems are active
+class GameScene: SKScene {
+    var uiStateMachine: GKStateMachine!
+
+    override func didMove(to view: SKView) {
+        uiStateMachine = GKStateMachine(states: [
+            MenuState(scene: self),
+            PlayingState(scene: self),
+            PausedState(scene: self),
+            GameOverState(scene: self)
+        ])
+        uiStateMachine.enter(MenuState.self)
+    }
+
+    override func update(_ currentTime: TimeInterval) {
+        // Only update gameplay systems when in PlayingState
+        if uiStateMachine.currentState is PlayingState {
+            entityManager.update(deltaTime: computeDelta(currentTime))
+        }
+    }
+}
+
+class PausedState: GKState {
+    private weak var scene: GameScene?
+
+    init(scene: GameScene) { self.scene = scene; super.init() }
+
+    override func isValidNextState(_ stateClass: AnyClass) -> Bool {
+        stateClass == PlayingState.self   // Can only resume
+    }
+
+    override func didEnter(from previousState: GKState?) {
+        scene?.physicsWorld.speed = 0     // Halt physics
+        scene?.showPauseOverlay()
+    }
+
+    override func willExit(to nextState: GKState) {
+        scene?.physicsWorld.speed = 1
+        scene?.hidePauseOverlay()
+    }
+}
+```
+
+## Checking State Before Transitions
+
+```swift
+// Safe external event handling
+func playerAttacked(enemy: EnemyEntity) {
+    guard enemy.stateMachine.canEnterState(EnemyFleeState.self) else { return }
+    enemy.stateMachine.enter(EnemyFleeState.self)
+}
+
+// Inspecting current state
+if entity.stateMachine.currentState is EnemyDeadState {
+    entityManager.remove(entity)
+}
+```

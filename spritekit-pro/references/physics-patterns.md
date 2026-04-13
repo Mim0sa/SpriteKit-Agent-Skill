@@ -2,18 +2,20 @@
 
 - Use the simplest physics shape that fits: `circleOfRadius` > `rectangleOf` > `polygonFrom` > `init(texture:size:)`. Texture-based physics is the slowest — avoid unless pixel-perfect collision is required.
 - Define all physics categories in one place as a struct with `UInt32` bit constants. Each scene supports a maximum of **32 categories** (bits 0–31).
-- Configure all three bitmasks on every physics body: `categoryBitMask`, `collisionBitMask`, `contactTestBitMask`.
+- Configure all three bitmasks on every physics body: `categoryBitMask`, `collisionBitMask`, `contactTestBitMask`. `collisionBitMask` controls physical push/bounce response; `contactTestBitMask` controls `didBegin(_:)` callbacks — they are independent and commonly confused.
 - Only add categories to `contactTestBitMask` that you actually handle in `didBegin(_:)` — unused contact pairs waste CPU.
 - Set `isDynamic = false` for all static objects (walls, platforms, ground). This is the single biggest physics performance win.
 - Set `allowsRotation = false` for player and humanoid characters unless spinning is intentional.
 - Enable `usesPreciseCollisionDetection` only for fast-moving objects that could tunnel through thin bodies (e.g. bullets). Leave it off everywhere else.
-- Never set `position` directly on a node with an active physics body — use `applyForce`, `applyImpulse`, or `velocity`.
+- Avoid setting `position` directly on a node with an active physics body during gameplay — use `applyForce`, `applyImpulse`, or `velocity`. Direct position assignment is acceptable for one-time teleports or respawns.
 - Edge-based bodies (`edgeLoopFrom`, `edgeChainFrom`) **never collide with other edge-based bodies**. Use thin rectangle bodies when two static surfaces must interact.
 - Clear `physicsBody = nil` before removing a node — the physics body otherwise persists in the simulation.
 - Defer all node removal triggered by contacts to `didSimulatePhysics()`.
 - Use `SKFieldNode` instead of per-frame manual force calculations for gravity wells, drag zones, and wind.
 - Assign `fieldBitMask` to physics bodies to control which fields affect them.
 - Always add joints through `physicsWorld.add(_:)` after both bodies are in the scene.
+- Tune physics feel with `linearDamping` (friction-like deceleration, 0–1), `angularDamping` (rotational friction, 0–1), and `restitution` (bounciness, 0 = no bounce, 1 = perfect elastic). Set these once during body configuration, not per frame.
+- Set `friction` on physics bodies for surface interaction (e.g., ice = 0.1, rubber = 0.8). Default is 0.2.
 
 ## Category Bitmask Setup
 
@@ -122,4 +124,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 }
+```
+
+## Physics Feel Tuning
+
+```swift
+// Player — responsive, no bounce, moderate air friction
+player.physicsBody?.linearDamping = 0.1
+player.physicsBody?.angularDamping = 0.5
+player.physicsBody?.restitution = 0
+player.physicsBody?.friction = 0.4
+
+// Bouncy ball — high restitution, low friction
+ball.physicsBody?.restitution = 0.9
+ball.physicsBody?.friction = 0.05
+ball.physicsBody?.linearDamping = 0.02
+
+// Ice surface — very low friction
+ground.physicsBody?.friction = 0.05
 ```

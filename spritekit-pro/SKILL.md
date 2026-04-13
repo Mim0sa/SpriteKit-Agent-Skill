@@ -1,9 +1,9 @@
 ---
 name: spritekit-pro
-description: Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects.
+description: Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects. Trigger whenever the user mentions SpriteKit, SKScene, SKNode, SKPhysicsBody, SKAction, SKEmitterNode, SKTileMapNode, GameplayKit (GKEntity, GKStateMachine, GKAgent, etc.), or any SpriteKit/GameplayKit class — even if the request is a simple question about game code, a bug fix, or adding a feature to an existing SpriteKit project.
 license: MIT
 metadata:
-  version: "0.1"
+  version: "0.2"
 ---
 
 Review SpriteKit code for correctness, modern API usage, performance, and cross-platform compatibility. Report only genuine problems — do not nitpick or invent issues.
@@ -11,28 +11,28 @@ Review SpriteKit code for correctness, modern API usage, performance, and cross-
 Review process:
 
 1. Validate scene hierarchy and lifecycle using `references/scene-architecture.md`.
-1. Check node lifecycle, memory management, and pooling using `references/node-management.md`.
-1. Verify physics body configuration, collision setup, and simulation correctness using `references/physics-patterns.md`.
-1. Validate texture atlases, animation state machines, and action usage using `references/animation-sprites.md`.
-1. Check asset loading strategy, texture filtering, and memory cleanup using `references/asset-management.md`.
-1. Ensure the game loop and frame cycle methods are used correctly using `references/game-loop-patterns.md`.
-1. Audit rendering performance — draw calls, node count, culling, shaders using `references/performance-optimization.md`.
-1. Validate particle system configuration and optimization using `references/particle-systems.md`.
-1. Check input handling for target platforms using `references/input-handling.md`.
-1. Validate audio setup and spatial audio configuration using `references/audio-integration.md`.
-1. Check cross-platform compatibility and visionOS restrictions using `references/cross-platform.md`.
-1. If tile maps are present, validate tile set and physics setup using `references/tilemap-patterns.md`.
-1. If shaders or Metal integration are present, validate using `references/rendering-pipeline.md`.
-1. If SwiftUI integration is present, validate state sharing and lifecycle using `references/swiftui-integration.md`.
-1. If GameplayKit is used, validate entity-component architecture using `references/gameplaykit-integration.md`.
+2. Check node lifecycle, memory management, and pooling using `references/node-management.md`.
+3. Verify physics body configuration, collision setup, and simulation correctness using `references/physics-patterns.md`.
+4. Validate texture atlases, animation state machines, and action usage using `references/animation-sprites.md`.
+5. Check asset loading strategy, texture filtering, and memory cleanup using `references/asset-management.md`.
+6. Ensure the game loop and frame cycle methods are used correctly using `references/game-loop-patterns.md`.
+7. Audit rendering performance — draw calls, node count, culling, shaders using `references/performance-optimization.md`.
+8. Validate particle system configuration and optimization using `references/particle-systems.md`.
+9. Check input handling for target platforms using `references/input-handling.md`.
+10. Validate audio setup and spatial audio configuration using `references/audio-integration.md`.
+11. Check cross-platform compatibility and visionOS restrictions using `references/cross-platform.md`.
+12. If tile maps are present, validate tile set and physics setup using `references/tilemap-patterns.md`.
+13. If shaders or Metal integration are present, validate using `references/rendering-pipeline.md`.
+14. If SwiftUI integration is present, validate state sharing and lifecycle using `references/swiftui-integration.md`.
+15. If GameplayKit is used, first check the index at `references/gameplaykit-integration.md`, then validate using the relevant sub-files: `references/gameplaykit-ecs.md`, `references/gameplaykit-state-machines.md`, `references/gameplaykit-pathfinding.md`, `references/gameplaykit-agents.md`, `references/gameplaykit-randomization.md`, `references/gameplaykit-rules.md`.
 
 If doing a partial review, load only the relevant reference files.
 
 
 ## Core Instructions
 
-- SpriteKit minimum supported versions: iOS 7 / macOS 10.9 / tvOS 9 / watchOS 3.
-- SpriteKit renders via Metal on all platforms — GLSL shader syntax is supported but compiled to MSL at runtime.
+- SpriteKit introduced in iOS 7 / macOS 10.9 / tvOS 9 / watchOS 3. For current projects, target iOS 18+ / macOS 15+. visionOS supports SpriteKit in iPad/iPhone compatibility mode only.
+- SpriteKit renders via Metal on all platforms — shader source must be written in OpenGL ES 2.0 shading language; SpriteKit compiles it for the Metal backend internally.
 - Do not introduce third-party game frameworks without asking first.
 - SpriteKit is not supported in native visionOS apps; always recommend RealityKit for native visionOS targets.
 - Prefer `@Observable` (iOS 17+) over `ObservableObject` for SwiftUI state sharing.
@@ -111,4 +111,10 @@ End of example.
 - `references/tilemap-patterns.md` — SKTileMapNode creation, adjacency rules, physics generation, chunking.
 - `references/rendering-pipeline.md` — SKShader (GLSL→Metal), SKRenderer, offscreen rendering, lighting.
 - `references/swiftui-integration.md` — SpriteView, @Observable state sharing, UIViewControllerRepresentable.
-- `references/gameplaykit-integration.md` — GKEntity/GKComponent, EntityManager, GKStateMachine.
+- `references/gameplaykit-integration.md` — Index file; cross-cutting rules, GKScene/.sks integration.
+- `references/gameplaykit-ecs.md` — GKEntity/GKComponent/GKComponentSystem, EntityManager, factory pattern.
+- `references/gameplaykit-state-machines.md` — GKStateMachine/GKState, per-entity and scene-level FSM, lifecycle hooks.
+- `references/gameplaykit-pathfinding.md` — GKObstacleGraph, GKMeshGraph, GKGridGraph, obstacle generation from SKNode.
+- `references/gameplaykit-agents.md` — GKAgent2D, GKGoal, GKBehavior, GKAgentDelegate, flocking.
+- `references/gameplaykit-randomization.md` — GKRandomSource, GKRandomDistribution, GKPerlinNoiseSource, GKNoiseMap.
+- `references/gameplaykit-rules.md` — GKRuleSystem, GKRule, fuzzy logic, GKDecisionTree.

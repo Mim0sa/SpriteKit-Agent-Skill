@@ -45,6 +45,7 @@ class NodePool<T: SKNode> {
 
     func release(_ node: T) {
         node.removeFromParent()
+        node.removeAllActions()   // Stop any running actions before pooling
         node.isHidden = true
         node.physicsBody?.velocity = .zero
         node.physicsBody?.angularVelocity = 0
@@ -115,7 +116,8 @@ func cullOffscreenNodes() {
 class GameScene: SKScene {
     deinit {
         removeAllActions()
-        enumerateChildNodes(withName: "//.*") { node, _ in
+        // Acceptable use of // recursive search: deinit requires exhaustive cleanup
+        enumerateChildNodes(withName: "//.+") { node, _ in
             node.removeAllActions()
             node.physicsBody = nil
         }
