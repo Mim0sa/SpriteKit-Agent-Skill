@@ -1,12 +1,11 @@
 # SwiftUI Integration
 
-- Use `SpriteView` for embedding SpriteKit scenes in SwiftUI — it handles the `SKView` lifecycle automatically.
-- Never create the `SKScene` inline as a computed `var` on the `View` struct — it re-creates the scene on every render pass. Use `@State` or a separate stored property.
-- Pass shared state via `@Observable` (iOS 17+) or `ObservableObject` (iOS 13+). Never expose game state through global singletons.
+- Use `SpriteView` to embed SpriteKit in SwiftUI — prefer it over `UIViewControllerRepresentable`; it handles the `SKView` lifecycle automatically.
+- Never create the `SKScene` inline as a computed `var` on a `View` — it re-creates the scene on every render pass. Store it in `@State` or a separate stored property.
+- Pass shared state via `@Observable`. Never expose game state through global singletons.
 - Hold a `weak` reference to shared state objects inside `SKScene` — a strong reference creates a retain cycle between the scene and the SwiftUI state.
-- Update SwiftUI state from SpriteKit only on the main actor — `SKScene` callbacks run on the main thread, but confirm this when using async dispatch.
-- `SpriteView` provides three initializers: basic (`scene:transition:isPaused:preferredFramesPerSecond:`), with rendering options (`...options:shouldRender:`), and with debug overlays (`...options:debugOptions:shouldRender:`). Prefer these over `UIViewControllerRepresentable`.
-- Pause/resume the scene in response to SwiftUI lifecycle events (`onAppear`/`onDisappear` or `.onChange(of: scenePhase)`).
+- Update SwiftUI state from SpriteKit callbacks directly — `SKScene` callbacks run on the main thread; no dispatch required unless you forked work to a background queue.
+- Pause/resume the scene in response to SwiftUI lifecycle events (`.onChange(of: scenePhase)`).
 
 ## Stable Scene Creation
 

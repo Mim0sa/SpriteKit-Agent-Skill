@@ -3,7 +3,7 @@ name: spritekit-pro
 description: Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects. Trigger whenever the user mentions SpriteKit, SKScene, SKNode, SKPhysicsBody, SKAction, SKEmitterNode, SKTileMapNode, GameplayKit (GKEntity, GKStateMachine, GKAgent, etc.), or any SpriteKit/GameplayKit class — even if the request is a simple question about game code, a bug fix, or adding a feature to an existing SpriteKit project.
 license: MIT
 metadata:
-  version: "0.2"
+  version: "0.3"
 ---
 
 Review SpriteKit code for correctness, modern API usage, performance, and cross-platform compatibility. Report only genuine problems — do not nitpick or invent issues.
@@ -24,20 +24,17 @@ Review process:
 12. If tile maps are present, validate tile set and physics setup using `references/tilemap-patterns.md`.
 13. If shaders or Metal integration are present, validate using `references/rendering-pipeline.md`.
 14. If SwiftUI integration is present, validate state sharing and lifecycle using `references/swiftui-integration.md`.
-15. If GameplayKit is used, first check the index at `references/gameplaykit-integration.md`, then validate using the relevant sub-files: `references/gameplaykit-ecs.md`, `references/gameplaykit-state-machines.md`, `references/gameplaykit-pathfinding.md`, `references/gameplaykit-agents.md`, `references/gameplaykit-randomization.md`, `references/gameplaykit-rules.md`.
+15. If GameplayKit is used, first check the index at `references/gameplaykit-integration.md`, then validate using the relevant sub-files: `references/gameplaykit-ecs.md`, `references/gameplaykit-state-machines.md`, `references/gameplaykit-pathfinding.md`, `references/gameplaykit-agents.md`, `references/gameplaykit-randomization.md`, `references/gameplaykit-rules.md`, `references/gameplaykit-spatial.md`.
 
 If doing a partial review, load only the relevant reference files.
 
 
 ## Core Instructions
 
-- SpriteKit introduced in iOS 7 / macOS 10.9 / tvOS 9 / watchOS 3. For current projects, target iOS 18+ / macOS 15+. visionOS supports SpriteKit in iPad/iPhone compatibility mode only.
-- SpriteKit renders via Metal on all platforms — shader source must be written in OpenGL ES 2.0 shading language; SpriteKit compiles it for the Metal backend internally.
+- Apple unified platform versioning at 26 — target `iOS 26 / macOS 26 / tvOS 26 / watchOS 26` for new projects (Xcode 26, Swift 6.3).
+- SpriteKit is not supported in native visionOS apps — it only runs in iPhone/iPad compatibility mode. Recommend RealityKit for native visionOS targets.
 - Do not introduce third-party game frameworks without asking first.
-- SpriteKit is not supported in native visionOS apps; always recommend RealityKit for native visionOS targets.
-- Prefer `@Observable` (iOS 17+) over `ObservableObject` for SwiftUI state sharing.
-- Use `[weak self]` in all `SKAction.run` blocks without exception.
-- Never remove nodes directly inside `didBegin(_:)` — always defer to `didSimulatePhysics()`.
+- Prefer `@Observable` over `ObservableObject` for SwiftUI state sharing.
 
 
 ## Output Format
@@ -118,3 +115,4 @@ End of example.
 - `references/gameplaykit-agents.md` — GKAgent2D, GKGoal, GKBehavior, GKAgentDelegate, flocking.
 - `references/gameplaykit-randomization.md` — GKRandomSource, GKRandomDistribution, GKPerlinNoiseSource, GKNoiseMap.
 - `references/gameplaykit-rules.md` — GKRuleSystem, GKRule, fuzzy logic, GKDecisionTree.
+- `references/gameplaykit-spatial.md` — GKQuadtree/GKOctree/GKRTree for region and proximity queries.

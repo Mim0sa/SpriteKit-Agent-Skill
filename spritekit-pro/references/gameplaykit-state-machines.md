@@ -47,64 +47,25 @@ class EnemyChaseState: GKState {
 }
 ```
 
-## Full Enemy State Machine
+## Wiring a State Machine on an Entity
 
 ```swift
 class EnemyEntity: GKEntity {
-    var stateMachine: GKStateMachine!
-    var sprite: SKSpriteNode!
-
-    func setupStateMachine() {
-        let idle   = EnemyIdleState(enemy: self)
-        let chase  = EnemyChaseState(enemy: self)
-        let flee   = EnemyFleeState(enemy: self)
-        let dead   = EnemyDeadState(enemy: self)
-        stateMachine = GKStateMachine(states: [idle, chase, flee, dead])
-        stateMachine.enter(EnemyIdleState.self)
-    }
+    lazy var stateMachine = GKStateMachine(states: [
+        EnemyIdleState(enemy: self),
+        EnemyChaseState(enemy: self),
+        EnemyDeadState(enemy: self),
+    ])
 
     override func update(deltaTime seconds: TimeInterval) {
         super.update(deltaTime: seconds)
-        stateMachine.update(deltaTime: seconds)  // Forward to current state
+        stateMachine.update(deltaTime: seconds)    // forwards to currentState
     }
 }
 
-class EnemyIdleState: GKState {
-    private weak var enemy: EnemyEntity?
-    private var idleTimer: TimeInterval = 0
-
-    init(enemy: EnemyEntity) { self.enemy = enemy; super.init() }
-
-    override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == EnemyChaseState.self
-    }
-
-    override func didEnter(from previousState: GKState?) {
-        idleTimer = 0
-        enemy?.sprite.removeAction(forKey: "move")
-    }
-
-    override func update(deltaTime seconds: TimeInterval) {
-        idleTimer += seconds
-        if idleTimer > 2.0 {
-            stateMachine?.enter(EnemyChaseState.self)
-        }
-    }
-}
-
+// Terminal state — no valid transitions out
 class EnemyDeadState: GKState {
-    private weak var enemy: EnemyEntity?
-
-    init(enemy: EnemyEntity) { self.enemy = enemy; super.init() }
-
-    // Dead is terminal — no valid next states
     override func isValidNextState(_ stateClass: AnyClass) -> Bool { false }
-
-    override func didEnter(from previousState: GKState?) {
-        enemy?.component(ofType: SpriteComponent.self)?.node.run(
-            .sequence([.fadeOut(withDuration: 0.4), .removeFromParent()])
-        )
-    }
 }
 ```
 

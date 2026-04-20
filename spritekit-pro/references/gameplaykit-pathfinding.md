@@ -5,6 +5,7 @@
 - Always call `connectUsingObstacles(node:)` for temporary start/end nodes, then `remove([startNode, endNode])` after pathfinding — leaving ad-hoc nodes in the graph leaks memory and degrades future searches.
 - Set `bufferRadius` on `GKObstacleGraph` equal to the agent's collision radius — prevents characters from clipping through obstacle corners.
 - Use `GKPolygonObstacle(points:count:)` for convex collision shapes; never use concave polygons directly — split them into convex parts first. In Swift, prefer the `init(points:)` overload that takes `[SIMD2<Float>]` directly.
+- Prefer `GKCircleObstacle(radius:)` for point-like obstacles (turrets, barrels, enemy units) — agents compute avoidance against a circle much faster than against a polygon. Set `.position` to place it. Use `GKSphereObstacle` instead for 3D (`GKAgent3D`).
 - `GKGraphNode2D` uses the same Y-up coordinate space as SpriteKit on all platforms — `SKView` always uses Y-up regardless of the underlying AppKit/UIKit coordinate system, so no coordinate flip is needed.
 - Throttle pathfinding — recompute paths at most every 0.3–0.5 s for moving entities; use the last known path between recalculations.
 - Generate `GKObstacle` arrays from `SKNode` physics bodies via `SKNode.obstacles(fromNodeBounds:)` or `SKNode.obstacles(fromNodePhysicsBodies:)` — avoids duplicating shape definitions.
@@ -150,4 +151,12 @@ let pts: [SIMD2<Float>] = [
     SIMD2(0, 0), SIMD2(100, 0), SIMD2(100, 100), SIMD2(0, 100)
 ]
 let manualObstacle = GKPolygonObstacle(points: pts)
+
+// Circle obstacle — cheaper for point-like avoidance targets
+let circle = GKCircleObstacle(radius: 24)
+circle.position = SIMD2<Float>(Float(turret.position.x), Float(turret.position.y))
+
+// Combine with GKGoal for agent avoidance
+let avoid = GKGoal(toAvoid: [circle, manualObstacle], maxPredictionTime: 1.0)
+behavior.setWeight(2.0, for: avoid)
 ```

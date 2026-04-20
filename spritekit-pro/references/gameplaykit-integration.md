@@ -10,6 +10,9 @@ GameplayKit integrates with SpriteKit through `GKScene`, `GKSKNodeComponent`, an
 - `gameplaykit-agents.md` — `GKAgent2D`, `GKGoal`, `GKBehavior`, `GKAgentDelegate`, flocking, composite behaviors.
 - `gameplaykit-randomization.md` — `GKRandomSource` subclasses, `GKRandomDistribution`, procedural noise (`GKPerlinNoiseSource`, `GKNoiseMap`, `SKTexture`).
 - `gameplaykit-rules.md` — `GKRuleSystem`, `GKRule`, fuzzy logic grades, `GKDecisionTree`.
+- `gameplaykit-spatial.md` — `GKQuadtree` / `GKOctree` / `GKRTree` for fast region and proximity queries.
+
+GameplayKit also ships a strategist family (`GKMinmaxStrategist`, `GKMonteCarloStrategist`) driven by the `GKGameModel` / `GKGameModelPlayer` / `GKGameModelUpdate` protocols — for turn-based AI. This skill does not cover strategists in depth; consult Apple's GameplayKit docs directly if you need them.
 
 ## Cross-Cutting Rules
 

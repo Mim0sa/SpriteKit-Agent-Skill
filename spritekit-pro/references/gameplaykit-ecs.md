@@ -10,6 +10,7 @@
 - Use `GKComponentSystem<T>` when you need all components of the same type to update in a strict, deterministic order (e.g., all `MovementComponent` before all `RenderComponent`).
 - Cap `deltaTime` passed to `entity.update(deltaTime:)` at `1.0/20.0` — prevents physics tunneling and runaway AI after a frame spike.
 - Do not store scene-level references (e.g., `SKCamera`, `HUD nodes`) inside components — pass them via initializer or a shared context object, not as retained properties.
+- Use `GKSKNodeComponent` to bind an `SKNode` to a `GKEntity` — it automatically sets `node.entity`, so you can navigate from any `SKNode` hit (e.g., a contact callback's `bodyA.node`) back to its owning entity via `node.entity`. The Xcode SpriteKit scene editor emits `GKSKNodeComponent` automatically when you attach entities/components to nodes in `.sks`.
 
 ## Core Component Trio
 
@@ -136,23 +137,3 @@ class GameScene: SKScene {
 }
 ```
 
-## Scene Integration
-
-```swift
-class GameScene: SKScene {
-    var entityManager: EntityManager!
-    private var lastUpdateTime: TimeInterval = 0
-
-    override func didMove(to view: SKView) {
-        entityManager = EntityManager(scene: self)
-        let player = EntityFactory.makePlayer(scene: self)
-        entityManager.add(player)
-    }
-
-    override func update(_ currentTime: TimeInterval) {
-        let raw = lastUpdateTime > 0 ? currentTime - lastUpdateTime : 0
-        lastUpdateTime = currentTime
-        entityManager.update(deltaTime: raw)  // EntityManager caps at 1/20 internally
-    }
-}
-```

@@ -89,33 +89,12 @@ override func update(_ currentTime: TimeInterval) {
 ## SKSceneDelegate — Shared Logic Across Scenes
 
 ```swift
-// Use a delegate when multiple scenes share the same frame-cycle logic
 class GameSceneDelegate: NSObject, SKSceneDelegate {
-    private var lastUpdateTime: TimeInterval = 0
-
-    func update(_ currentTime: TimeInterval, for scene: SKScene) {
-        let rawDelta = lastUpdateTime > 0 ? currentTime - lastUpdateTime : 0
-        lastUpdateTime = currentTime
-        guard let gameScene = scene as? GameScene else { return }
-        gameScene.entityManager.update(deltaTime: min(rawDelta, 1.0 / 20.0))
-    }
-
-    func didSimulatePhysics(for scene: SKScene) {
-        guard let gameScene = scene as? GameScene else { return }
-        gameScene.processDeferredRemovals()
-    }
+    func update(_ currentTime: TimeInterval, for scene: SKScene) { /* frame logic */ }
+    func didSimulatePhysics(for scene: SKScene) { /* deferred removals */ }
 }
 
-// In view controller — hold a strong reference, then assign to scene.delegate
-class GameViewController: UIViewController {
-    var gameDelegate: GameSceneDelegate?  // Strong reference — delegate is weak on SKScene
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        let scene = GameScene(size: view.bounds.size)
-        gameDelegate = GameSceneDelegate()
-        scene.delegate = gameDelegate
-        (view as? SKView)?.presentScene(scene)
-    }
-}
+// scene.delegate is weak — owner must retain the delegate
+var sharedDelegate = GameSceneDelegate()
+scene.delegate = sharedDelegate
 ```

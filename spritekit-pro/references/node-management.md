@@ -2,7 +2,7 @@
 
 - Define node names as constants (enum or struct), never as inline string literals.
 - Keep direct references to frequently accessed nodes (player, camera, HUD) — avoid `childNode(withName:)` in hot paths.
-- Never use `//` recursive name search except when absolutely required; always search a specific layer instead.
+- Never use recursive name searches (`"//name"` prefix in `childNode(withName:)` / `enumerateChildNodes`) in hot paths — always search a specific layer instead.
 - Use `[weak self]` in every `SKAction.run` block — omitting it always creates a retain cycle.
 - Clear `physicsBody = nil` and call `removeAllActions()` before calling `removeFromParent()`.
 - Use a `nodesToRemove: [SKNode]` array for deferred removal — process it in `didSimulatePhysics()`, never inside contact callbacks.
@@ -101,7 +101,7 @@ func cullOffscreenNodes() {
                         y: camera.position.y - size.height / 2 - 100),
         size: CGSize(width: size.width + 200, height: size.height + 200)
     )
-    // Enumerate direct children of known layers — avoid recursive // search
+    // Enumerate direct children of known layers — avoid recursive name searches
     worldLayer.children.forEach { node in
         let visible = cullRect.intersects(node.calculateAccumulatedFrame())
         node.isPaused = !visible
@@ -116,7 +116,7 @@ func cullOffscreenNodes() {
 class GameScene: SKScene {
     deinit {
         removeAllActions()
-        // Acceptable use of // recursive search: deinit requires exhaustive cleanup
+        // Recursive search acceptable here — deinit requires exhaustive cleanup
         enumerateChildNodes(withName: "//.+") { node, _ in
             node.removeAllActions()
             node.physicsBody = nil

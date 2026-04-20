@@ -74,17 +74,15 @@ override func update(_ currentTime: TimeInterval) {
 ## Texture Batching
 
 ```swift
-// Correct: same texture = one draw call for all instances
+// Correct: same texture = one draw call for all 20 instances
 let texture = atlas.textureNamed("enemy_basic")
 for _ in 0..<20 {
-    let enemy = SKSpriteNode(texture: texture)
-    worldLayer.addChild(enemy)
+    worldLayer.addChild(SKSpriteNode(texture: texture))
 }
 
 // Wrong: each unique texture is a separate draw call
 worldLayer.addChild(SKSpriteNode(imageNamed: "enemy_a"))
 worldLayer.addChild(SKSpriteNode(imageNamed: "enemy_b"))
-// Two draw calls instead of one
 ```
 
 ## Rasterizing Static Effect Layers
