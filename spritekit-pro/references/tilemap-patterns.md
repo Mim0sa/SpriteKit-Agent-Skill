@@ -1,27 +1,27 @@
 # Tile Map Patterns
 
-- Use Xcode's SpriteKit Scene Editor to design tile maps visually; generate them programmatically only for procedural content.
-- Always load tile textures from a texture atlas — tiles from the same atlas batch into one draw call. Individual textures multiply draw calls proportionally.
-- Use power-of-2 tile sizes (32, 64, 128) for optimal GPU texture performance. Avoid 48×48 or 100×100.
+- Use Xcode's SpriteKit Scene Editor for authored maps and programmatic construction for procedural, data-driven, or runtime-generated maps.
+- Use a texture atlas for related tile textures when it improves loading and batching; verify draw count because ordering, overlap, shaders, and effects can split passes.
+- Choose tile size from art, collision, and gameplay-grid requirements. Modern texture atlases do not require every logical tile dimension to be a power of two.
 - Enable `tileMap.enableAutomapping = true` when using adjacency rule tile groups — without it, adjacent tiles will not update automatically.
-- Never create one `SKPhysicsBody` per tile — combine adjacent solid tiles into a single rectangle body to minimize physics overhead.
+- For large contiguous collision regions, combine adjacent solid tiles into fewer overlay nodes with physics bodies. Individual bodies can remain appropriate for a small number of interactive tiles.
 - For large worlds, split the map into chunk nodes and load/unload chunks based on camera proximity.
 - `SKTileMapNode` defaults to `anchorPoint = (0.5, 0.5)` — its bottom-left corner is at `(-width/2, -height/2)` in parent coordinates. Explicitly set the anchor point when you need a different origin.
-- Avoid `SKTileMapNode` for fewer than ~20 tiles — individual `SKSpriteNode` instances are simpler and equally performant at that scale.
+- Choose `SKTileMapNode` when tile-set editing, adjacency rules, or grid lookup simplifies the feature; use individual sprites when independent node behavior is more important.
 
-## Tile Map Size Guidelines
+## Tile Map Budget Signals
 
-| Device | Recommended visible tiles | Notes |
-|--------|--------------------------|-------|
-| iPhone (modern) | 1000–2000 | Use chunk culling for larger maps |
-| iPad (modern) | 2000–4000 | |
-| Apple TV | 1500–3000 | |
-| Older devices | 500–1000 | |
+| Signal | What to inspect |
+|--------|-----------------|
+| Visible cells and layers | Render work for the current camera |
+| Draw count | Atlas, shader, blend, and ordering effects |
+| Collision overlay bodies | Physics cost independent of tile count |
+| Minimum-device frame time and memory | Project-specific chunk and visibility budgets |
 
 ## Programmatic Creation
 
 ```swift
-// 1. Textures from atlas (required for draw call batching)
+// 1. Textures from an atlas can improve loading and batching.
 let atlas = SKTextureAtlas(named: "TileAtlas")
 let grassDef = SKTileDefinition(texture: atlas.textureNamed("grass"))
 let dirtDef  = SKTileDefinition(texture: atlas.textureNamed("dirt"))

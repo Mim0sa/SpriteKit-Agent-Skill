@@ -1,17 +1,17 @@
 # Scene Architecture
 
-- Always organize scenes into named layers: background, world, UI, debug. Assign explicit `zPosition` values to each.
-- Add UI elements as children of `SKCameraNode`, not the scene, so they stay fixed on screen during camera movement.
-- Set `scaleMode` on every scene — prefer `.aspectFill` for most games; never leave it at the default without intention.
+- Introduce named layers such as background, world, UI, and debug when the scene needs independent ordering, transforms, or visibility control. Keep simple scenes simple.
+- Add scene-space HUD elements as children of `SKCameraNode` when they must remain fixed during camera movement or zoom.
+- Set `scaleMode` intentionally based on whether the game uses a fixed logical canvas or a scene that resizes with the view.
 - Use `didMove(to:)` for setup (physics, assets, camera). Use `willMove(from:)` for teardown (save state, stop audio).
-- Never keep a strong reference to the old scene after calling `presentScene(_:)` — let it deallocate automatically.
-- Implement `didChangeSize(_:)` to handle orientation and layout changes.
-- Use `SKTransition` for all scene changes to avoid visual cuts.
-- `SKScene` is a subclass of `SKEffectNode` — applying effects to the entire scene is expensive. Apply effects to specific layer nodes instead, and set `shouldRasterize = true` to cache the output.
-- Never create or add nodes inside `update(_:)` — use object pooling instead.
-- Size nodes relative to `scene.size`, not hardcoded values.
-- Use `SKSceneDelegate` instead of subclassing `SKScene` when multiple scenes share the same frame-cycle logic — set `scene.delegate` and implement the `SKSceneDelegate` protocol methods (`update(_:for:)`, `didSimulatePhysics(for:)`, etc.).
-- Set `anchorPoint` to control where the scene's `(0, 0)` maps within the view — `(0.5, 0.5)` centers it (default), `(0, 0)` places it at bottom-left. When a camera is active, `anchorPoint` has no effect on visible content.
+- Retain an old scene only as part of an intentional, bounded cache or navigation design. Accidental retention is a memory issue, but a strong reference alone is not a leak.
+- Implement `didChangeSize(_:)` when the selected scale mode or resizable window can change `scene.size`.
+- Use `SKTransition` when a visual transition is desired; immediate scene changes are valid when the design calls for them.
+- `SKScene` is a subclass of `SKEffectNode` — applying effects to the entire scene is expensive. Prefer a specific layer node, and enable `shouldRasterize` only while the filtered content changes infrequently.
+- Avoid unbounded per-frame node and action allocation. Event-driven spawning from `update(_:)` is valid; pool only when profiling shows allocation or loading cost.
+- Derive layout from `scene.size`, safe-area information, or a documented logical canvas instead of scattering unexplained screen-size constants.
+- Use `SKSceneDelegate` when shared frame-cycle logic benefits from composition; subclassing `SKScene` remains valid.
+- Set `anchorPoint` to control where the scene's `(0, 0)` maps within the view. The default `(0, 0)` places it at bottom-left; `(0.5, 0.5)` centers it. When a camera is active, `anchorPoint` does not determine visible content.
 
 ## Layered Scene Setup
 
@@ -50,10 +50,10 @@ func goToNextLevel(_ level: Int) {
     view?.presentScene(next, transition: SKTransition.fade(withDuration: 0.5))
 }
 
-// Wrong: retains old scene (memory leak)
+// Potentially wrong when this grows without a cache policy.
 var previousScene: GameScene?
 func switchScene() {
-    previousScene = skView.scene as? GameScene  // leak
+    previousScene = skView.scene as? GameScene  // Intentional retention needs a lifetime policy.
     skView.presentScene(newScene)
 }
 ```

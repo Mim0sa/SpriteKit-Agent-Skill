@@ -2,17 +2,17 @@
 
 - Enable SKView debug overlays in `#if DEBUG` blocks only — never ship with `showsFPS`, `showsNodeCount`, or `showsDrawCount` enabled.
 - Set `view.ignoresSiblingOrder = true` when z-ordering is managed exclusively via `zPosition` — this allows SpriteKit to batch nodes by texture regardless of tree order.
-- Keep active node count below 500 on iPhone, 800 on iPad. Flag scenes that consistently exceed these limits.
-- Avoid creating `SKAction` instances or allocating nodes inside `update(_:)`.
-- Implement off-screen culling: set `isPaused = true` and `isHidden = true` on nodes outside the viewport. Restore them when they re-enter.
-- Limit active physics bodies to 100–200. Static bodies (`isDynamic = false`) are nearly free; dynamic bodies are the budget concern.
-- Reuse `SKAction` instances as `static let` constants rather than recreating them per spawn.
+- Establish node, draw-call, frame-time, memory, and physics budgets on the minimum supported device. Do not use a universal node-count threshold as a correctness rule.
+- Avoid repeated `SKAction` or node allocation in a measured hot path; event-driven allocation from `update(_:)` can be valid.
+- Use `shouldCullNonVisibleNodes` for render culling when appropriate. Remove or pool distant nodes when traversal or simulation remains expensive, but only if they are disposable or an authoritative world model can restore them; `isHidden` alone does not remove traversal cost.
+- Measure physics cost with the actual mix of bodies, contacts, joints, fields, and precise collision detection instead of enforcing a universal body-count limit.
+- Reuse immutable `SKAction` instances when the same action is executed frequently and measurements show repeated construction in a hot path.
 - Use `shouldRasterize = true` on `SKEffectNode` layers that are static or change infrequently — caches filtered output to a bitmap.
-- Batch draw calls by grouping nodes that share the same texture together in the node tree.
-- Release texture and atlas references when switching major scenes — textures stay in GPU memory until the referencing `SKTexture` object is deallocated.
-- Prefer `additive` blend mode over `alpha` for particles — additive is faster and avoids overdraw cost.
-- Call `view.preferredFramesPerSecond = 30` for turn-based or low-action games to save battery.
-- Avoid `SKShapeNode` for frequently updated or numerous shapes — it regenerates geometry on every property change. Use `SKSpriteNode` with a pre-rendered texture instead.
+- Group compatible nodes when draw-count measurements show batching opportunities. Texture, z-order, overlap, blend mode, shader, crop, and effect state all affect batching.
+- Release texture and atlas references when memory measurements show scene-specific assets should be reclaimed.
+- Choose particle blend mode by visual semantics: `.add` for luminous accumulation and `.alpha` for opacity-bearing effects. Measure either mode when fill rate is a concern.
+- Lower `preferredFramesPerSecond` only when the product's motion and input requirements permit it, and verify the battery or performance benefit.
+- Replace frequently changing or numerous `SKShapeNode` instances with pre-rendered textures only when profiling identifies shape tessellation or drawing as a bottleneck.
 
 ## Debug Overlays (DEBUG only)
 
@@ -42,45 +42,64 @@ class GameViewController: UIViewController {
 | `showsDrawCount` | Draw calls | Optimizing batching |
 | `showsPhysics` | Physics body outlines | Debugging collisions |
 | `showsFields` | Physics field regions | Debugging force fields |
-| `showsQuadCount` | Sprite batch count | Validating atlas batching |
+| `showsQuadCount` | Rendered rectangles | Tracking submitted sprite geometry |
 
-## Node Count Thresholds
+## Performance Evidence
 
-| Device | Target | Critical |
-|--------|--------|----------|
-| iPhone (modern) | < 500 | > 1000 |
-| iPad (modern) | < 800 | > 1500 |
-| Apple TV | < 600 | > 1200 |
-| Older devices | < 300 | > 500 |
+| Signal | Use |
+|--------|-----|
+| Frame time and FPS | Confirm the user-visible performance problem |
+| `showsDrawCount` / `showsQuadCount` | Find batching and rendered-geometry opportunities; neither directly measures overdraw |
+| `showsNodeCount` | Detect unexpected growth; not a universal capacity limit |
+| `showsPhysics` plus contact/body metrics | Correlate physics complexity with frame spikes |
+| Memory on the minimum supported device | Set scene-specific texture and pooling budgets |
 
-## Off-Screen Culling
+## Recycling Disposable Off-Screen Nodes
 
 ```swift
 override func update(_ currentTime: TimeInterval) {
-    guard let camera = camera else { return }
+    guard let view else { return }
+    let viewCorners = [
+        CGPoint(x: view.bounds.minX, y: view.bounds.minY),
+        CGPoint(x: view.bounds.maxX, y: view.bounds.minY),
+        CGPoint(x: view.bounds.maxX, y: view.bounds.maxY),
+        CGPoint(x: view.bounds.minX, y: view.bounds.maxY)
+    ]
+    let worldCorners = viewCorners.map {
+        worldLayer.convert(convertPoint(fromView: $0), from: self)
+    }
+    let xValues = worldCorners.map(\.x)
+    let yValues = worldCorners.map(\.y)
+    let margin: CGFloat = 100
     let cullRect = CGRect(
-        x: camera.position.x - size.width / 2 - 100,
-        y: camera.position.y - size.height / 2 - 100,
-        width: size.width + 200, height: size.height + 200
+        x: xValues.min()! - margin,
+        y: yValues.min()! - margin,
+        width: xValues.max()! - xValues.min()! + margin * 2,
+        height: yValues.max()! - yValues.min()! + margin * 2
     )
-    worldLayer.children.forEach { node in
-        let visible = cullRect.intersects(node.calculateAccumulatedFrame())
-        node.isPaused = !visible
-        node.isHidden = !visible
+    let disposableNodes = worldLayer.children.filter {
+        $0.userData?["discardWhenOffscreen"] as? Bool == true
+    }
+
+    disposableNodes.forEach { node in
+        guard !cullRect.intersects(node.calculateAccumulatedFrame()) else { return }
+        recycle(node) // Stops activity, removes the node, and returns it to its pool.
     }
 }
 ```
 
+Converting all four view corners makes the axis-aligned culling rectangle conservative under camera zoom and rotation and under transforms on `worldLayer`. Keep persistent level state outside the rendered node tree and restore it through a chunk or world manager. Never remove arbitrary world children merely because the camera cannot currently see them.
+
 ## Texture Batching
 
 ```swift
-// Correct: same texture = one draw call for all 20 instances
+// These nodes can batch when render state and ordering are compatible.
 let texture = atlas.textureNamed("enemy_basic")
 for _ in 0..<20 {
     worldLayer.addChild(SKSpriteNode(texture: texture))
 }
 
-// Wrong: each unique texture is a separate draw call
+// Different textures may require additional passes; verify with showsDrawCount.
 worldLayer.addChild(SKSpriteNode(imageNamed: "enemy_a"))
 worldLayer.addChild(SKSpriteNode(imageNamed: "enemy_b"))
 ```

@@ -1,0 +1,294 @@
+{
+  "skill_name": "spritekit-pro",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "In SpriteKit, can I set my camera position in didFinishUpdate()? I only need an explanation, not a project review.",
+      "expected_output": "A direct explanation that node values written in didFinishUpdate() render in the current frame, while new actions, physics changes, and constraints wait for later update phases.",
+      "files": [],
+      "expectations": [
+        "The response uses explanation mode instead of a file-by-file review template.",
+        "The response does not claim that node state must never change in didFinishUpdate().",
+        "The response distinguishes visible node-property changes from deferred action, physics, and constraint processing."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Fix this contact callback so it safely removes the enemy after physics. Either contact body can arrive first, and an enemy body can contain PhysicsCategory.enemy together with other category bits: func didBegin(_ contact: SKPhysicsContact) { contact.bodyB.node?.removeFromParent() }",
+      "expected_output": "A focused implementation that identifies the enemy from either contact body using bitmask membership, unwraps its node, queues it, and removes queued nodes after physics without loading unrelated SpriteKit domains.",
+      "files": [],
+      "expectations": [
+        "The response does not assume that the enemy is always bodyA or bodyB; it checks both bodies using a nonzero bitwise AND with PhysicsCategory.enemy.",
+        "The proposed queue stores the identified enemy as a non-optional SKNode value or otherwise handles the optional safely.",
+        "Removal occurs after physics rather than directly in the contact callback.",
+        "The response is framed as a fix, not as a comprehensive audit."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review this finite SpriteKit action for memory problems: player.run(.moveBy(x: 20, y: 0, duration: 0.2)) { self.recordMove() }. The player remains in the presented scene until the action completes, and no code stores the completion closure elsewhere.",
+      "expected_output": "No persistent retain-cycle finding under the stated lifecycle guarantee; the answer explains that the finite completion retains self temporarily and releases it when the action completes.",
+      "files": [],
+      "expectations": [
+        "The response does not state that every strong action completion capture leaks.",
+        "The response distinguishes temporary lifetime extension from a persistent reference cycle.",
+        "The response reports no persistent memory leak because the prompt guarantees that the action runs to completion."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Review this SpriteKit code: final class Enemy: SKSpriteNode { func start() { run(.repeatForever(.run { self.turnAround() })) } }",
+      "expected_output": "A concrete warning about the repeating node-action-closure-node ownership cycle, with a weak capture or explicit action cancellation as the fix.",
+      "files": [],
+      "expectations": [
+        "The response traces the repeating ownership cycle rather than citing a blanket weak-self rule.",
+        "The response proposes a weak capture or an equivalent lifetime-breaking fix.",
+        "The finding is treated as applicable because the action repeats indefinitely."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "My SwiftUI view owns both an @Observable GameState and a GameScene. The scene strongly references GameState, but GameState has no reference to the scene. Review only the ownership.",
+      "expected_output": "No retain-cycle finding because the ownership graph has no reference back from GameState to GameScene.",
+      "files": [],
+      "expectations": [
+        "The response does not require GameScene.gameState to be weak by default.",
+        "The response explicitly notes that a cycle requires a strong path back to the scene or owner.",
+        "The response stays scoped to ownership."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "My SpriteKit level has 900 nodes and 250 physics bodies on a recent iPhone, but I have no frame-time, draw-count, or physics measurements. Is that automatically a performance bug?",
+      "expected_output": "No automatic violation based on counts alone; the answer asks for minimum-device measurements and identifies useful SpriteKit counters and workload evidence.",
+      "files": [],
+      "expectations": [
+        "The response treats node and body counts as project-specific signals rather than hard framework limits.",
+        "The response recommends measuring frame time and relevant SpriteKit debug counters.",
+        "Any optimization suggestions are labeled as hypotheses until measured."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Build a new native visionOS immersive app whose renderer is an SKView containing a SpriteKit scene.",
+      "expected_output": "The response explains that SpriteKit APIs are available on visionOS but Apple advises against using them in apps created specifically for visionOS, then recommends RealityKit or SwiftUI for the native experience.",
+      "files": [],
+      "expectations": [
+        "The response does not falsely claim that SKView or SpriteKit is absent from the visionOS SDK.",
+        "The response distinguishes API availability from Apple's guidance for apps created specifically for visionOS.",
+        "The response recommends RealityKit or SwiftUI for the native implementation."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "I am using GKStateMachine to control a SceneKit character. There is no SpriteKit target or SpriteKit code. Review my architecture.",
+      "expected_output": "The response recognizes that the task is outside this skill's SpriteKit-specific scope and does not apply SpriteKit scene, node, or rendering rules.",
+      "files": [],
+      "expectations": [
+        "The response does not apply SpriteKit references to the SceneKit project.",
+        "The response identifies the absence of SpriteKit as a scope boundary.",
+        "The response avoids inventing SpriteKit-specific findings."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Review this SpriteKit ownership case: let enemy = Enemy(); enemy.run(.wait(forDuration: 5)) { enemy.finishSpawn() }. The enemy is never added to a presented scene, no external owner keeps it alive, and no code cancels the action. Does the finite duration guarantee release?",
+      "expected_output": "A concrete retain-cycle warning: because the node never joins a presented scene, its action does not advance to completion, so the node-action-completion-node cycle persists despite the finite duration.",
+      "files": [],
+      "expectations": [
+        "The response does not treat finite duration alone as a guarantee that the closure will be released.",
+        "The response explains that actions advance only while the node participates in a presented scene's update cycle.",
+        "The response identifies the node-action-completion-node ownership cycle.",
+        "The response proposes a weak capture or explicit action cancellation from an external lifecycle owner."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Review only the action-closure ownership in the provided Enemy.swift. Report concrete persistent cycles with exact lines, and do not turn finite temporary retention into a leak.",
+      "expected_output": "A scoped file review that reports the repeating turn action as a persistent node-action-closure-node cycle while leaving the finite move completion unreported under its normal completion lifetime.",
+      "files": [
+        "evals/files/ownership-review/Enemy.swift"
+      ],
+      "expectations": [
+        "The response identifies the repeating action in startTurning() as a persistent ownership cycle.",
+        "The response gives the relevant Enemy.swift line or a precise reference to startTurning().",
+        "The response does not report moveForward() as a persistent leak merely because its finite completion captures self strongly.",
+        "The response stays scoped to action-closure ownership."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Fix the provided GameScene.swift so enemy removal is independent of contact body order and occurs after SpriteKit finishes the physics step. Enemy bodies may combine PhysicsCategory.enemy with PhysicsCategory.airborne. Preserve the existing category constants and contact-delegate setup.",
+      "expected_output": "A focused file change that selects an enemy from either contact body using bitmask membership, queues a non-optional node, and flushes the queue in didSimulatePhysics().",
+      "files": [
+        "evals/files/contact-removal/GameScene.swift"
+      ],
+      "expectations": [
+        "The implementation checks both bodyA and bodyB with a nonzero bitwise AND against PhysicsCategory.enemy rather than exact mask equality.",
+        "The implementation queues only an identified non-optional enemy node.",
+        "The implementation removes queued nodes in didSimulatePhysics() rather than in didBegin(_:).",
+        "The existing PhysicsCategory constants and physicsWorld.contactDelegate setup remain intact."
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Review this SpriteKit movement setup only: a dynamic SKPhysicsBody is attached to an enemy node, and GKAgent2D.agentDidUpdate(_:) assigns node.position = CGPoint(agent.position) every frame. Contacts jitter when the enemy reaches a wall.",
+      "expected_output": "A focused finding that the agent and physics simulation both author position, followed by one explicit movement authority such as translating steering into physics velocity or forces instead of overwriting the node transform.",
+      "files": [],
+      "expectations": [
+        "The response identifies competing movement authorities rather than declaring GKAgent2D and SKPhysicsBody universally incompatible.",
+        "The response recommends one authoritative movement path.",
+        "If physics remains authoritative, the response feeds the physics-updated node transform into the agent before the agent update.",
+        "If physics remains authoritative, the response translates steering into velocity, forces, or impulses rather than assigning node.position every frame.",
+        "The response stays scoped to the reported jitter."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Optimize my scrolling SpriteKit level. The current culling loop removes every worldLayer child outside the camera rectangle, including doors whose open state exists only on the node. There is no separate world model or chunk restoration system.",
+      "expected_output": "A warning not to destroy persistent world state merely because it is offscreen, with render culling or pausing as conditional alternatives and removal reserved for disposable or restorable nodes.",
+      "files": [],
+      "expectations": [
+        "The response identifies loss of authoritative door state as a correctness problem.",
+        "The response does not recommend removing arbitrary persistent world children.",
+        "Removal or pooling is conditioned on the node being disposable or restorable from an authoritative model.",
+        "Performance recommendations remain hypotheses unless supported by measurements."
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "My SpriteKit smoke particles currently use particleBlendMode = .add because a review said additive is always faster. The smoke should remain dark and opacity-bearing when clouds overlap. Review only the blend-mode choice.",
+      "expected_output": "A scoped recommendation to use alpha blending for opacity-bearing smoke and to measure fill-rate cost rather than treating additive blending as a universal optimization.",
+      "files": [],
+      "expectations": [
+        "The response chooses blend mode from the visual semantics of smoke.",
+        "The response does not claim that .add is universally faster or free of overdraw cost.",
+        "The response recommends .alpha for the stated opacity-bearing effect.",
+        "The response stays scoped to particle blending."
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Should I replace a two-case Playing/Paused enum with GKStateMachine? There are no restricted transitions, entry side effects, or exit cleanup, and the existing enum is clear. Review the architecture without rewriting code.",
+      "expected_output": "No mandatory state-machine migration; the answer keeps the simple enum unless transition rules or lifecycle hooks create a demonstrated benefit.",
+      "files": [],
+      "expectations": [
+        "The response does not require GKStateMachine merely because there are two mutually exclusive states.",
+        "The response treats transition rules and entry or exit behavior as reasons that could justify a state machine.",
+        "The response preserves the intentional simple architecture.",
+        "The response does not produce an implementation when only a review was requested."
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Review this tile-map decision: a boss arena has twelve independently animated breakable tiles, each with its own small physics body. A teammate says SpriteKit requires merging every tile body into one rectangle regardless of behavior.",
+      "expected_output": "No blanket merge requirement; the answer explains that a small number of interactive tiles may retain individual bodies and recommends combining large contiguous static regions only when measurements or scale justify it.",
+      "files": [],
+      "expectations": [
+        "The response does not require merging all twelve interactive tile bodies.",
+        "The response distinguishes interactive tiles from large contiguous static collision regions.",
+        "Any performance concern is conditioned on measurements or meaningful scale.",
+        "The response stays scoped to tile-map physics structure."
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Fix a SpriteKit SKPhysicsContactDelegate implementation in an existing Xcode 16 project using Swift 6 language mode. The project must remain on its current compiler and language mode. Do not require a toolchain upgrade just to express the conformance.",
+      "expected_output": "A contact-delegate implementation that uses @preconcurrency or an equivalent Swift 6-compatible strategy without copying Swift 6.2 isolated-conformance syntax into the Xcode 16 project.",
+      "files": [],
+      "expectations": [
+        "The response preserves the existing Xcode and Swift toolchain instead of requiring an upgrade.",
+        "The response does not use the Swift 6.2-only '@MainActor' protocol-conformance syntax for the Xcode 16 implementation.",
+        "The response uses '@preconcurrency' conformance or another strategy that resolves the main-actor-isolated scene versus nonisolated delegate requirement in Swift 6 language mode.",
+        "The response still establishes SKPhysicsContactDelegate conformance and contactDelegate setup.",
+        "Any newer conformance form is labeled as conditional on compiler support rather than deployment-target availability."
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "Review only the ownership of these GameController callbacks. A connected GCController can outlive GameScene, and its valueChangedHandler captures the scene strongly. GameScene does not store the controller, so there is no reference path back to the controller.",
+      "expected_output": "A focused warning about one-way lifetime extension from the long-lived controller callback source, without incorrectly requiring a retain cycle before recommending weak capture or teardown.",
+      "files": [],
+      "expectations": [
+        "The response recognizes that a long-lived callback source can retain the scene even without a reference cycle.",
+        "The response recommends a weak scene capture or clearing the controller handlers at teardown.",
+        "The response distinguishes one-way lifetime extension from a retain cycle.",
+        "The response stays scoped to callback ownership."
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Fix this SwiftUI SpriteView setup so GameScene has its GameState before didMove(to:) can run, while keeping the scene identity stable across View updates. The current code creates the scene in @State but assigns scene.gameState only from .onAppear.",
+      "expected_output": "A construction-time dependency injection pattern that creates one state object and one stable scene, assigns the state before SpriteView presents the scene, and removes reliance on onAppear ordering.",
+      "files": [],
+      "expectations": [
+        "The same GameState instance is supplied to both SwiftUI observation storage and GameScene.",
+        "GameScene receives GameState before it is passed to SpriteView.",
+        "The scene remains stored with stable identity rather than being reconstructed from body.",
+        "The implementation does not rely on onAppear to inject the required dependency."
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "Review this proposed migration in an existing SpriteKit app whose deployment target must remain iOS 13: replace its working UIViewRepresentable SKView wrapper with SpriteView, and create the shared ObservableObject with @StateObject. Do not change the deployment target.",
+      "expected_output": "A focused compatibility finding that SpriteView and @StateObject require iOS 14, so the proposed migration cannot be used for the unchanged iOS 13 target; the response preserves an iOS 13-compatible SKView wrapper and externally owned observable state instead of raising the target.",
+      "files": [],
+      "expectations": [
+        "The response identifies both SpriteView and @StateObject as unavailable for an iOS 13 deployment target.",
+        "The response preserves the existing deployment target instead of requiring an upgrade.",
+        "The response keeps or recommends an iOS 13-compatible UIViewRepresentable or UIViewControllerRepresentable SKView integration.",
+        "The response does not present the ObservableObject example labeled iOS 14+ as iOS 13-compatible.",
+        "The response stays scoped to deployment compatibility and state ownership."
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "Review this tvOS SpriteKit scene lifecycle: didMove(to:) adds a Menu-button UITapGestureRecognizer to the shared SKView every time the scene is presented, menuPressed() only toggles pause, and willMove(from:) does not remove the recognizer. The first Menu press should pause; a later press while paused should navigate back.",
+      "expected_output": "A focused lifecycle fix that stores the scene-owned recognizer, installs it without duplication, removes it from SKView in willMove(from:), and preserves a Back path by navigating away when Menu is pressed while already paused.",
+      "files": [],
+      "expectations": [
+        "The response recognizes that the SKView can outlive an individual presented scene and that its recognizers therefore need explicit teardown.",
+        "The implementation stores the recognizer and prevents duplicate installation.",
+        "The implementation removes the recognizer from the SKView in willMove(from:).",
+        "The Menu or Back behavior pauses on the first applicable press and provides navigation back or exit from the paused state.",
+        "The response does not recommend intercepting Menu merely to prevent the user from leaving the app."
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "Implement SKPhysicsContactDelegate setup for a watchOS SpriteKit target built with Swift 6.3. The scene is presented through WKInterfaceSKScene, SKView is unavailable, and the delegate must be configured before presentation. Keep the solution compatible with the watchOS SpriteKit isolation model.",
+      "expected_output": "A watchOS-compatible implementation that uses ordinary SKPhysicsContactDelegate conformance, configures physics through a platform-neutral scene method or the WatchKit owner, and does not reference SKView or apply the main-actor-isolated conformance used by other current SpriteKit platforms.",
+      "files": [],
+      "expectations": [
+        "The response does not reference SKView in the watchOS implementation.",
+        "The response uses ordinary SKPhysicsContactDelegate conformance on watchOS rather than an @MainActor-isolated conformance.",
+        "The contact delegate is assigned before the scene is presented through WKInterfaceSKScene.",
+        "The response does not select the conformance solely from the Swift compiler version."
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "Fix this SpriteKit contact-role extraction without assuming exclusive category bits. bodyA may have both PhysicsCategory.player and PhysicsCategory.enemy, while bodyB may have PhysicsCategory.player plus auxiliary bits. For a player-enemy contact, pass two distinct correctly assigned nodes to handlePlayerHitEnemy(player:enemy:) regardless of body order.",
+      "expected_output": "A pairwise bitmask match that selects both roles in one ordered branch, handles either contact-body order, and never derives player and enemy independently in a way that can select the same node for both roles.",
+      "files": [],
+      "expectations": [
+        "The implementation tests category membership with a nonzero bitwise AND.",
+        "The implementation handles both bodyA-player/bodyB-enemy and bodyB-player/bodyA-enemy orderings.",
+        "Player and enemy are assigned together within the matching branch rather than with independent ternary expressions.",
+        "For the stated bodyA dual-membership and bodyB player case, bodyB is passed as player and bodyA as enemy."
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "Review this SpriteKit batching claim: every tile and animation frame comes from one SKTextureAtlas, so the whole scene is guaranteed to render in exactly one draw call even though sprites overlap at different zPosition values and some use shaders and SKEffectNode parents.",
+      "expected_output": "A correction that texture-atlas membership can improve loading and batching but does not guarantee one drawing pass, with a recommendation to verify the actual result using showsDrawCount and inspect ordering, overlap, shaders, and effects.",
+      "files": [],
+      "expectations": [
+        "The response rejects the guarantee of exactly one draw call.",
+        "The response recognizes that atlas membership can still improve loading or batching.",
+        "The response identifies ordering, overlap, shaders, or effects as possible drawing-pass boundaries.",
+        "The response recommends verifying the result with showsDrawCount rather than treating atlas use as sufficient evidence."
+      ]
+    }
+  ]
+}

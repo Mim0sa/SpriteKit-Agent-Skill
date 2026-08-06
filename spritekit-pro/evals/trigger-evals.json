@@ -1,0 +1,82 @@
+[
+  {
+    "query": "Enemy.swift runs SKAction.repeatForever(.run { self.turnAround() }) and removed enemies never deallocate. Review the closure ownership and give me the smallest safe fix.",
+    "should_trigger": true
+  },
+  {
+    "query": "My SKCameraNode follows the player, but SKLabelNode HUD elements drift when the camera zooms. Keep the world coordinates unchanged and fix the node hierarchy.",
+    "should_trigger": true
+  },
+  {
+    "query": "This SpriteView recreates GameScene whenever SwiftUI state changes. Refactor the screen so the scene identity is stable and shares an @Observable score model.",
+    "should_trigger": true
+  },
+  {
+    "query": "Profile-driven review please: showsDrawCount jumps from 18 to 95 when three SKEmitterNode explosions overlap on an iPhone 15. Help me reduce the SpriteKit rendering cost.",
+    "should_trigger": true
+  },
+  {
+    "query": "My .sks level has a large tile map with adjacency rules and separate collision nodes. Add chunk loading around the camera without breaking tile coordinates.",
+    "should_trigger": true
+  },
+  {
+    "query": "Review the SKShader uniforms in WaterNode.swift. The shader is created every frame and the project mixes SpriteKit with an existing Metal render loop through SKRenderer.",
+    "should_trigger": true
+  },
+  {
+    "query": "I use GKAgent2D as a component on SpriteKit enemies that also have SKPhysicsBody. Fix the jitter by defining one authoritative movement path.",
+    "should_trigger": true
+  },
+  {
+    "query": "EnemyState.swift sits beside GameScene.swift in this game repository. Review its GKStateMachine transitions because enemies sometimes enter Attack directly from Dead, but keep the existing state architecture.",
+    "should_trigger": true
+  },
+  {
+    "query": "Add positional SKAudioNode effects to enemies and make the player node the scene listener, while keeping music non-positional.",
+    "should_trigger": true
+  },
+  {
+    "query": "Audit this macOS and tvOS SpriteKit input layer. It supports mouse aiming, keyboard controls, Siri Remote presses, and GCController hot-plugging.",
+    "should_trigger": true
+  },
+  {
+    "query": "Our SceneKit app uses GKStateMachine for a 3D character and SCNPhysicsBody for movement. Review whether the state transitions and animation ownership are sound.",
+    "should_trigger": false
+  },
+  {
+    "query": "Create a native visionOS RealityView with hand tracking, spatial gestures, and RealityKit entities for an immersive gardening experience.",
+    "should_trigger": false
+  },
+  {
+    "query": "Explain Swift ARC capture lists and when an escaping closure needs weak self in a networking service. No game frameworks are involved.",
+    "should_trigger": false
+  },
+  {
+    "query": "Implement a Metal compute shader that performs image convolution in an MTKView, including threadgroup sizing and texture synchronization.",
+    "should_trigger": false
+  },
+  {
+    "query": "Build a SwiftUI settings form with @Observable, NavigationStack, and AppStorage for a productivity app.",
+    "should_trigger": false
+  },
+  {
+    "query": "Use GameplayKit GKMinmaxStrategist to choose moves in a turn-based board-game model rendered entirely with UIKit collection views.",
+    "should_trigger": false
+  },
+  {
+    "query": "Our internal SearchKit package defines Swift types named SKNode and SKAction for a document-indexing pipeline. Fix an actor-isolation error in that package; no Apple game frameworks are imported.",
+    "should_trigger": false
+  },
+  {
+    "query": "Use GameplayKit GKNoise to generate terrain heights for RealityKit entities in a native visionOS app. There is no SpriteKit target, scene, node, or renderer.",
+    "should_trigger": false
+  },
+  {
+    "query": "Fix a generic Swift Set mutation bug in an actor-isolated dependency-graph cache whose Foundation model types are named Node and Scene.",
+    "should_trigger": false
+  },
+  {
+    "query": "Create a CAEmitterLayer confetti effect for a UIKit checkout success screen, with cells that fade and spin before the overlay removes itself.",
+    "should_trigger": false
+  }
+]

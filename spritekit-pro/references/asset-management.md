@@ -1,11 +1,11 @@
 # Asset Management
 
-- Use texture atlases (`.atlas` folders) for all related sprites — tiles and animation frames from the same atlas batch into a single draw call.
+- Group related sprites in texture atlases when it improves loading and batching. Verify `showsDrawCount`; textures from one atlas can still require separate drawing passes because of ordering, overlap, blend mode, shaders, crops, or effects.
 - Preload atlases with `SKTextureAtlas.preloadTextureAtlasesNamed(_:withCompletionHandler:)` from a loading scene before gameplay begins. In Swift concurrency contexts, use the async variant `SKTextureAtlas.preloadTextureAtlasesNamed(_:) async throws -> [SKTextureAtlas]`.
 - Preload large individual textures with `SKTexture.preload(_:withCompletionHandler:)` — loading on first use causes frame drops.
 - Always call completion handlers on the main thread after background preloading finishes.
 - Set texture filtering mode once when loading: use `.nearest` for pixel art, `.linear` (default) for smooth/HD art. Never change it per frame.
-- Release texture and atlas references when transitioning between major scenes — textures stay in GPU memory until the referencing `SKTexture` object is deallocated. Nil out unused texture/atlas properties to reclaim GPU memory.
+- Release scene-specific texture and atlas references when they are no longer needed and memory measurements show that reclaiming them matters. Textures remain resident while referenced, but shared assets should not be purged solely because a scene changes.
 - Prefer power-of-2 tile sizes (32, 64, 128) when targeting older devices — modern Apple Silicon handles non-power-of-2 textures efficiently.
 
 ## Atlas Preloading Strategy

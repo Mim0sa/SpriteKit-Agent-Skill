@@ -1,11 +1,11 @@
 # SwiftUI Integration
 
-- Use `SpriteView` to embed SpriteKit in SwiftUI — prefer it over `UIViewControllerRepresentable`; it handles the `SKView` lifecycle automatically.
+- Use `SpriteView` for standard SwiftUI embedding. Use `UIViewRepresentable` or `UIViewControllerRepresentable` when the feature requires direct `SKView` configuration that `SpriteView` does not expose.
 - Never create the `SKScene` inline as a computed `var` on a `View` — it re-creates the scene on every render pass. Store it in `@State` or a separate stored property.
-- Pass shared state via `@Observable`. Never expose game state through global singletons.
-- Hold a `weak` reference to shared state objects inside `SKScene` — a strong reference creates a retain cycle between the scene and the SwiftUI state.
+- Pass shared state via `@Observable` when Observation is available; avoid global singletons.
+- Give shared state one clear owner. `SKScene` may hold it strongly unless the state also retains the scene; use `weak` only when it breaks a demonstrated ownership cycle.
 - Update SwiftUI state from SpriteKit callbacks directly — `SKScene` callbacks run on the main thread; no dispatch required unless you forked work to a background queue.
-- Pause/resume the scene in response to SwiftUI lifecycle events (`.onChange(of: scenePhase)`).
+- Pause/resume gameplay in response to SwiftUI lifecycle events when background simulation is not intended.
 
 ## Stable Scene Creation
 
@@ -40,16 +40,25 @@ extension GameScene {
 ## State Sharing — @Observable (iOS 17+)
 
 ```swift
+import Observation
+
+@MainActor
 @Observable
 class GameState {
     var score: Int = 0
     var lives: Int = 3
 }
 
+@MainActor
 struct GameView: View {
-    @State private var gameState = GameState()
-    // Scene held in @State — created once, not re-created on every render pass
-    @State private var scene: GameScene = GameScene.make()
+    @State private var gameState: GameState
+    @State private var scene: GameScene
+
+    init() {
+        let state = GameState()
+        _gameState = State(initialValue: state)
+        _scene = State(initialValue: GameScene.make(state: state))
+    }
 
     var body: some View {
         ZStack {
@@ -60,16 +69,17 @@ struct GameView: View {
             }.padding()
         }
         .ignoresSafeArea()
-        .onAppear { scene.gameState = gameState }  // Wire state after scene is stable
     }
 }
 
 class GameScene: SKScene {
-    weak var gameState: GameState?  // weak — avoids retain cycle
+    // Strong is correct here because GameState does not retain GameScene.
+    var gameState: GameState?
 
-    static func make() -> GameScene {
+    static func make(state: GameState) -> GameScene {
         let scene = GameScene(size: CGSize(width: 1024, height: 768))
         scene.scaleMode = .aspectFill
+        scene.gameState = state
         return scene
     }
 
@@ -79,17 +89,28 @@ class GameScene: SKScene {
 }
 ```
 
-## State Sharing — ObservableObject (iOS 13+)
+## State Sharing — ObservableObject (iOS 14+)
 
 ```swift
 class GameState: ObservableObject {
     @Published var score: Int = 0
 }
 
+@MainActor
 struct GameView: View {
-    @StateObject private var gameState = GameState()
+    @StateObject private var gameState: GameState
+    @State private var scene: GameScene
+
+    init() {
+        let state = GameState()
+        let scene = GameScene.make()
+        scene.gameState = state
+        _gameState = StateObject(wrappedValue: state)
+        _scene = State(initialValue: scene)
+    }
+
     var body: some View {
-        SpriteView(scene: GameScene.make(state: gameState))
+        SpriteView(scene: scene)
     }
 }
 ```

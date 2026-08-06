@@ -1,13 +1,13 @@
 # GameplayKit — State Machines
 
-- Use `GKStateMachine` for any entity with 2+ mutually exclusive behavioral modes — boolean flags become unmanageable beyond 2 states.
-- Define transition validity in `isValidNextState(_:)` on every `GKState` subclass — the machine enforces it; never call `enter(_:)` without this guard.
+- Use `GKStateMachine` when mutually exclusive modes have meaningful transition rules or entry/exit behavior; a small enum can be sufficient for simple state.
+- Override `isValidNextState(_:)` when transitions are restricted. The default accepts transitions, so do not require an override for an intentionally unrestricted state.
 - Use `didEnter(from:)` for side effects that happen once on entry (play animation, change tint, enable component) — not in `update(deltaTime:)`.
 - Use `willExit(to:)` for cleanup that depends on the *next* state (e.g., stop a looping action only when transitioning to Dead, not Idle).
 - Call `stateMachine.update(deltaTime:)` from the entity's or scene's `update(_:)` — the machine forwards the call to `currentState.update(deltaTime:)`.
 - Use `canEnterState(_:)` before attempting a transition in response to external events (e.g., damage received) — avoids silent no-ops that are hard to debug.
-- Keep `GKState` subclasses lightweight — hold only a `weak` reference back to the owning entity or component, never retain the scene or other entities strongly.
-- Model game UI flow (Menu → Playing → Paused → GameOver) with a top-level `GKStateMachine` in `GameScene` — centralizes which systems run per state.
+- Keep `GKState` ownership explicit. Use a weak reference when the owner retains the state machine and the states would otherwise retain the owner; a strong reference is valid without a cycle.
+- A top-level `GKStateMachine` can model game flow such as Menu → Playing → Paused → GameOver when transition hooks simplify system coordination.
 
 ## State Subclass Template
 

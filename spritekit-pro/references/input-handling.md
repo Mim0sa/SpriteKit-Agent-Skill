@@ -1,14 +1,14 @@
 # Input Handling
 
-- Always implement `touchesCancelled(_:with:)` on iOS — forward it to `touchesEnded` to prevent stuck input states.
+- Reset active input state from `touchesCancelled(_:with:)` on iOS. Share a cleanup helper with `touchesEnded(_:with:)` rather than invoking another event callback directly.
 - Enable `view.isMultipleTouchEnabled = true` explicitly if the game requires multi-touch; it is disabled by default.
-- Abstract platform input behind a protocol so game logic does not contain `#if os()` branching.
-- For tvOS, handle the Siri Remote menu button via `UITapGestureRecognizer` with `allowedPressTypes = [.menu]`.
+- Abstract platform input behind a protocol when the game supports multiple input models.
+- On tvOS, preserve expected Menu/Back navigation. Add a press recognizer only when the app has a documented pause or navigation behavior and still provides a path back.
 - For macOS, implement `mouseMoved` only when hover/aim feedback is required — it fires constantly and adds cost.
 - For macOS keyboard input, override `keyDown(with:)` and `keyUp(with:)` on `SKScene` — call `super` for unhandled keys to avoid swallowing system shortcuts.
 - Use `gesture recognizers` added to the `SKView` for complex gestures (pinch, pan, double-tap) rather than reimplementing them from raw touch events.
 - Convert gesture recognizer coordinates with `convertPoint(fromView:)` before using them in scene space.
-- Bind game controller handlers with `[weak self]` — `GCController` holds strong references to closures.
+- Use `[weak self]` in controller handlers when the controller or gamepad can outlive the scene, or clear the handlers at the scene's teardown boundary. Trace both retain cycles and one-way lifetime extension from a long-lived callback source.
 - Poll `GCController.controllers()` in `didMove(to:)` to handle controllers already connected before the scene loads.
 
 ## Touch (iOS)
@@ -24,10 +24,14 @@ class GameScene: SKScene {
         handleInputMoved(to: touch.location(in: self))
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        handleInputEnded()
+        resetActiveInput()
     }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        touchesEnded(touches, with: event)  // Always forward
+        resetActiveInput()
+    }
+
+    private func resetActiveInput() {
+        handleInputEnded()
     }
 }
 ```

@@ -68,7 +68,7 @@ let shuffledDeck = seededSource.arrayByShufflingObjects(in: cardArray) as! [Card
 - Use `GKRidgedNoiseSource` for mountain ridges and sharp geological features — it amplifies high-frequency detail at peaks.
 - Use `GKBillowNoiseSource` for smooth, puffy shapes like clouds or rolling hills — it is Perlin with absolute-value post-processing.
 - Use `GKVoronoiNoiseSource` for cell-based patterns: cracked earth, scales, stone textures.
-- Always construct the pipeline in order: `GKNoiseSource` → `GKNoise` → `GKNoiseMap` → output — skipping steps wastes computation.
+- Construct sampled noise through `GKNoiseSource` → `GKNoise` → `GKNoiseMap` → output; each stage supplies the source, composable operations, sampled region, and final consumer respectively.
 - `GKNoise` operations (add, multiply, clamp, invert) are lazy — computation only happens when `GKNoiseMap` is created; chain them freely.
 - Use `GKNoiseMap(noise:size:origin:sampleCount:seamless:)` with `seamless: true` for tileable textures — essential for repeating backgrounds.
 - Convert `GKNoiseMap` to `SKTexture` via `SKTexture(noiseMap:)` — generates the texture on the calling thread; do this off the main thread for large maps.

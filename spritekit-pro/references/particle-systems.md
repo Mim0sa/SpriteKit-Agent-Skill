@@ -1,22 +1,23 @@
 # Particle Systems
 
-- Use `SKEmitterNode(fileNamed:)` over programmatic creation for effects designed in Xcode's particle editor.
+- Use `SKEmitterNode(fileNamed:)` for effects authored as `.sks` emitter assets; programmatic construction remains valid for generated or data-driven effects.
 - Set `targetNode = scene` (or the world layer) on emitters attached to moving nodes — this causes particles to persist in world space after the emitter moves.
 - Always set `numParticlesToEmit` for one-shot effects (explosions, impacts) so the emitter stops automatically.
-- Use `additive` blend mode (`particleBlendMode = .add`) instead of `alpha` — faster rendering and produces correct glow/fire look.
-- Disable unused particle properties (`particleRotationSpeed = 0`, `fieldBitMask = 0`) — unused channels still incur evaluation cost.
-- Use small, simple particle textures (< 64×64) — large textures multiply GPU texture bandwidth.
+- Use `.add` for luminous effects such as fire, sparks, and glow; retain `.alpha` when particles represent smoke, debris, or other opacity-bearing material.
+- Set `fieldBitMask = 0` when the effect must ignore fields. Keep other particle properties simple unless the visual design uses them, and profile before claiming a performance win.
+- Keep particle textures no larger than their visual detail requires and include fill-rate cost in performance testing.
 - Remove emitters after one-shot effects complete; do not leave dead emitters in the node tree.
-- Pool frequently reused emitters with `resetSimulation()` on release — recreating from file on every spawn is expensive.
-- Keep total live particles below 1000–2000 on iPhone, 3000–5000 on Apple TV.
+- Pool frequently reused emitters when asset decoding or allocation appears in measurements; call `resetSimulation()` before reuse.
+- Set emitter and live-particle budgets from measurements on the minimum supported device. Treat sample counts as starting values, not framework limits.
 
-## Particle Count Limits
+## Particle Budget Signals
 
-| Device | Max Concurrent Particles | Max Emitters |
-|--------|--------------------------|--------------|
-| iPhone | 1000–2000 | 5–10 |
-| iPad | 2000–4000 | 10–15 |
-| Apple TV | 3000–5000 | 10–20 |
+| Signal | What to inspect |
+|--------|-----------------|
+| Frame time while effects overlap | Fill-rate and blending pressure |
+| Live particles and emitters | Unexpected accumulation or missing cleanup |
+| Texture dimensions | Bandwidth relative to on-screen particle size |
+| Minimum-device measurements | The budget to enforce for this project |
 
 ## One-Shot Effect (Auto-Remove)
 
@@ -78,8 +79,8 @@ class EmitterPool {
 
 ```swift
 // Preferred for fire, sparks, glow effects
-emitter.particleBlendMode = .add    // Faster, no overdraw depth sorting
+emitter.particleBlendMode = .add
 
-// Use only when true transparency/overlap is required
+// Appropriate for smoke, dust, debris, and ordinary transparency
 emitter.particleBlendMode = .alpha
 ```

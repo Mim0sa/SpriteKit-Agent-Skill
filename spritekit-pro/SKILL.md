@@ -1,118 +1,80 @@
 ---
 name: spritekit-pro
-description: Reviews, writes, and optimizes SpriteKit game code for correctness, modern API usage, performance, and cross-platform compatibility. Use when reading, writing, or reviewing SpriteKit projects. Trigger whenever the user mentions SpriteKit, SKScene, SKNode, SKPhysicsBody, SKAction, SKEmitterNode, SKTileMapNode, GameplayKit (GKEntity, GKStateMachine, GKAgent, etc.), or any SpriteKit/GameplayKit class — even if the request is a simple question about game code, a bug fix, or adding a feature to an existing SpriteKit project.
+description: Reviews, explains, writes, debugs, and optimizes SpriteKit code for correctness, modern API usage, performance, and cross-platform compatibility. Use whenever a task mentions SpriteKit or SpriteKit types such as SKScene, SKNode, SKSpriteNode, SKPhysicsBody, SKAction, SKEmitterNode, SKTileMapNode, SKShader, SKView, or SpriteView, including focused questions and small fixes. Also use for GameplayKit types such as GKEntity, GKComponent, GKStateMachine, or GKAgent when the surrounding project uses SpriteKit. Do not use for GameplayKit projects without SpriteKit or for general Swift questions.
 license: MIT
 metadata:
-  version: "0.3"
+  version: "0.4"
 ---
 
-Review SpriteKit code for correctness, modern API usage, performance, and cross-platform compatibility. Report only genuine problems — do not nitpick or invent issues.
+Determine the task mode before loading references:
 
-Review process:
+- **Explain:** Answer the question directly. Load only the references needed for the concepts involved.
+- **Implement or fix:** Inspect the affected code, load only the references for the domains being changed, make the requested change, and verify it in proportion to risk.
+- **Optimize:** Establish the reported or measured bottleneck first. Treat numeric budgets as starting points, not universal correctness limits.
+- **Review:** Report only concrete issues supported by code evidence. Do not turn preferences or unmeasured performance concerns into violations.
+- **Comprehensive audit:** Follow the ordered review process below and load every reference relevant to code that is actually present.
 
-1. Validate scene hierarchy and lifecycle using `references/scene-architecture.md`.
-2. Check node lifecycle, memory management, and pooling using `references/node-management.md`.
-3. Verify physics body configuration, collision setup, and simulation correctness using `references/physics-patterns.md`.
-4. Validate texture atlases, animation state machines, and action usage using `references/animation-sprites.md`.
-5. Check asset loading strategy, texture filtering, and memory cleanup using `references/asset-management.md`.
-6. Ensure the game loop and frame cycle methods are used correctly using `references/game-loop-patterns.md`.
-7. Audit rendering performance — draw calls, node count, culling, shaders using `references/performance-optimization.md`.
-8. Validate particle system configuration and optimization using `references/particle-systems.md`.
-9. Check input handling for target platforms using `references/input-handling.md`.
-10. Validate audio setup and spatial audio configuration using `references/audio-integration.md`.
-11. Check cross-platform compatibility and visionOS restrictions using `references/cross-platform.md`.
-12. If tile maps are present, validate tile set and physics setup using `references/tilemap-patterns.md`.
-13. If shaders or Metal integration are present, validate using `references/rendering-pipeline.md`.
-14. If SwiftUI integration is present, validate state sharing and lifecycle using `references/swiftui-integration.md`.
-15. If GameplayKit is used, first check the index at `references/gameplaykit-integration.md`, then validate using the relevant sub-files: `references/gameplaykit-ecs.md`, `references/gameplaykit-state-machines.md`, `references/gameplaykit-pathfinding.md`, `references/gameplaykit-agents.md`, `references/gameplaykit-randomization.md`, `references/gameplaykit-rules.md`, `references/gameplaykit-spatial.md`.
+For partial tasks, select the relevant references first and skip unrelated domains. For a comprehensive audit, first inventory the frameworks, node types, callbacks, and platform-specific code that are actually present. Then follow this order, loading a reference only when its condition applies:
 
-If doing a partial review, load only the relevant reference files.
-
+1. If scenes or scene transitions are present, validate hierarchy and lifecycle using `references/scene-architecture.md`.
+2. If nodes are created, retained, removed, pooled, or culled, use `references/node-management.md`.
+3. If physics bodies, contacts, fields, or joints are present, use `references/physics-patterns.md`.
+4. If textures, sprite animation, or actions are present, use `references/animation-sprites.md`.
+5. If assets, atlases, or texture loading are present, use `references/asset-management.md`.
+6. If frame-cycle callbacks or time-based updates are present, use `references/game-loop-patterns.md`.
+7. Audit rendering performance using `references/performance-optimization.md` when code or measurements indicate a rendering concern.
+8. Validate particle configuration using `references/particle-systems.md` when emitters are present.
+9. If touch, mouse, keyboard, gesture, remote, or controller input is present, use `references/input-handling.md`.
+10. If SpriteKit or AVFoundation audio is present, use `references/audio-integration.md`.
+11. If the project is multi-platform, contains platform conditionals, or targets visionOS, use `references/cross-platform.md`.
+12. If tile maps are present, use `references/tilemap-patterns.md`.
+13. If shaders or custom Metal integration are present, use `references/rendering-pipeline.md`.
+14. If SwiftUI integration is present, use `references/swiftui-integration.md`.
+15. If GameplayKit is integrated with SpriteKit, start with `references/gameplaykit-integration.md`, then load only the relevant specialized files: `references/gameplaykit-ecs.md`, `references/gameplaykit-state-machines.md`, `references/gameplaykit-pathfinding.md`, `references/gameplaykit-agents.md`, `references/gameplaykit-randomization.md`, `references/gameplaykit-rules.md`, or `references/gameplaykit-spatial.md`.
 
 ## Core Instructions
 
-- Apple unified platform versioning at 26 — target `iOS 26 / macOS 26 / tvOS 26 / watchOS 26` for new projects (Xcode 26, Swift 6.3).
-- SpriteKit is not supported in native visionOS apps — it only runs in iPhone/iPad compatibility mode. Recommend RealityKit for native visionOS targets.
+- Respect the project's existing deployment targets, Swift language mode, and supported devices. Do not raise them unless the user asks. When creating a project with no stated requirements, use iOS 18+ / macOS 15+ as the baseline and call out the assumption.
+- SpriteKit APIs are available in the visionOS SDK, but Apple advises against using SpriteKit in apps created specifically for visionOS. Recommend RealityKit or SwiftUI for native visionOS experiences, and distinguish this platform guidance from API unavailability and from iPhone or iPad compatibility apps.
 - Do not introduce third-party game frameworks without asking first.
-- Prefer `@Observable` over `ObservableObject` for SwiftUI state sharing.
-
+- Prefer `@Observable` over `ObservableObject` when the deployment target supports Observation, while preserving compatibility with the project's target.
+- Distinguish **correctness requirements**, **conditional patterns**, and **performance heuristics**. Report a violation only when its preconditions are present.
+- Require evidence for performance findings: measurements, debug counters, a demonstrated hot path, or an obviously unbounded operation. Do not report device-count budgets as hard limits.
+- Preserve intentional architecture. Recommend patterns such as layers, pooling, ECS, or state machines only when they solve a demonstrated need; do not impose them universally.
+- Report only genuine problems. Do not nitpick, invent retain cycles, or label deliberate object retention as a leak without tracing the complete ownership cycle.
 
 ## Output Format
 
-Organize findings by file. For each issue:
+Match the output to the task mode:
 
-1. State the file and relevant line(s).
-2. Name the rule being violated (e.g., "Defer node removal to `didSimulatePhysics()`").
-3. Show a brief before/after code fix.
+- **Explain:** Give a direct answer, followed by the smallest useful example or caveat.
+- **Implement or fix:** Lead with the completed outcome. Summarize changed files, important design decisions, and verification performed.
+- **Optimize:** State the observed bottleneck and evidence, then recommend changes in impact order. Separate measured findings from hypotheses.
+- **Review:** Organize findings by file. For each issue, state the relevant line, severity, violated correctness requirement or applicable condition, evidence, and a concise fix. Show before/after code only when it materially clarifies the change. Skip files with no issues and end with a prioritized summary.
 
-Skip files with no issues. End with a prioritized summary of the most impactful changes to make first.
-
-Example output:
-
-### GameScene.swift
-
-**Line 42: Defer node removal to `didSimulatePhysics()` — removing during contact callbacks causes undefined behavior.**
-
-```swift
-// Before
-func didBegin(_ contact: SKPhysicsContact) {
-    contact.bodyB.node?.removeFromParent()
-}
-
-// After
-func didBegin(_ contact: SKPhysicsContact) {
-    nodesToRemove.append(contact.bodyB.node)
-}
-
-override func didSimulatePhysics() {
-    nodesToRemove.forEach { $0.physicsBody = nil; $0.removeFromParent() }
-    nodesToRemove.removeAll()
-}
-```
-
-**Line 78: Use `[weak self]` in `SKAction.run` block — strong capture with `repeatForever` creates a retain cycle.**
-
-```swift
-// Before
-run(SKAction.repeatForever(
-    SKAction.run { self.spawnEnemy() }
-))
-
-// After
-run(SKAction.repeatForever(
-    SKAction.run { [weak self] in self?.spawnEnemy() }
-))
-```
-
-### Summary
-
-1. **Crash risk (high):** Node removal during contact callback on line 42.
-2. **Memory leak (high):** Strong self capture in repeating action on line 78.
-
-End of example.
-
+If there are no genuine review findings, say so explicitly and mention any verification gaps. Never force review formatting onto an explanation or implementation task.
 
 ## References
 
-- `references/scene-architecture.md` — Scene lifecycle, layered node hierarchy, camera control, scene transitions.
-- `references/node-management.md` — Node lifecycle, memory management, object pooling, culling.
+- `references/scene-architecture.md` — Scene lifecycle, optional layer organization, camera control, scene transitions.
+- `references/node-management.md` — Node lifecycle, ownership, cleanup, pooling, culling.
 - `references/physics-patterns.md` — Physics body types, category bitmasks, collision handling, fields, joints.
-- `references/animation-sprites.md` — Texture atlases, frame animation, SKAction patterns, anchor points.
+- `references/animation-sprites.md` — Texture atlases, frame animation, action reuse, animation state.
 - `references/asset-management.md` — Atlas loading, texture filtering modes, memory cleanup strategy.
-- `references/game-loop-patterns.md` — Frame cycle methods, delta time, fixed timestep, component systems.
-- `references/performance-optimization.md` — Draw call reduction, node culling, SKView debug options, profiling.
-- `references/particle-systems.md` — SKEmitterNode configuration, particle count limits, emitter pooling.
-- `references/input-handling.md` — Touch (iOS), mouse (macOS), game controller (tvOS), unified abstraction.
+- `references/game-loop-patterns.md` — Frame-cycle methods, delta time, fixed-step game logic, component updates.
+- `references/performance-optimization.md` — Draw-call measurement, node traversal, culling, effect caching.
+- `references/particle-systems.md` — Emitter lifetime, coordinate space, pooling, blend-mode selection.
+- `references/input-handling.md` — Touch, mouse, keyboard, controllers, gestures, unified abstraction.
 - `references/audio-integration.md` — SKAudioNode, positional audio, spatial listener, AVAudioEngine.
-- `references/cross-platform.md` — Platform detection, screen adaptation, visionOS restrictions.
+- `references/cross-platform.md` — Platform detection, safe areas, input differences, visionOS guidance.
 - `references/tilemap-patterns.md` — SKTileMapNode creation, adjacency rules, physics generation, chunking.
-- `references/rendering-pipeline.md` — SKShader (GLSL→Metal), SKRenderer, offscreen rendering, lighting.
-- `references/swiftui-integration.md` — SpriteView, @Observable state sharing, UIViewControllerRepresentable.
-- `references/gameplaykit-integration.md` — Index file; cross-cutting rules, GKScene/.sks integration.
-- `references/gameplaykit-ecs.md` — GKEntity/GKComponent/GKComponentSystem, EntityManager, factory pattern.
-- `references/gameplaykit-state-machines.md` — GKStateMachine/GKState, per-entity and scene-level FSM, lifecycle hooks.
-- `references/gameplaykit-pathfinding.md` — GKObstacleGraph, GKMeshGraph, GKGridGraph, obstacle generation from SKNode.
-- `references/gameplaykit-agents.md` — GKAgent2D, GKGoal, GKBehavior, GKAgentDelegate, flocking.
-- `references/gameplaykit-randomization.md` — GKRandomSource, GKRandomDistribution, GKPerlinNoiseSource, GKNoiseMap.
+- `references/rendering-pipeline.md` — SKShader, SKRenderer, offscreen rendering, effects, lighting.
+- `references/swiftui-integration.md` — SpriteView, stable scene identity, Observation, lifecycle.
+- `references/gameplaykit-integration.md` — Index and cross-cutting GameplayKit/SpriteKit integration rules.
+- `references/gameplaykit-ecs.md` — GKEntity, GKComponent, GKComponentSystem, optional entity management.
+- `references/gameplaykit-state-machines.md` — GKStateMachine, GKState, transition and lifecycle hooks.
+- `references/gameplaykit-pathfinding.md` — GKObstacleGraph, GKMeshGraph, GKGridGraph, SpriteKit obstacles.
+- `references/gameplaykit-agents.md` — GKAgent2D, GKGoal, GKBehavior, GKAgentDelegate.
+- `references/gameplaykit-randomization.md` — GKRandomSource, distributions, procedural noise.
 - `references/gameplaykit-rules.md` — GKRuleSystem, GKRule, fuzzy logic, GKDecisionTree.
-- `references/gameplaykit-spatial.md` — GKQuadtree/GKOctree/GKRTree for region and proximity queries.
+- `references/gameplaykit-spatial.md` — GKQuadtree, GKOctree, and GKRTree spatial queries.

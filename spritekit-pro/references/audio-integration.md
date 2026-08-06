@@ -1,10 +1,10 @@
 # Audio Integration
 
-- Use `SKAudioNode` for all in-game audio — it integrates with SpriteKit's scene graph and lifecycle automatically.
+- Use `SKAudioNode` when audio should participate in the SpriteKit node hierarchy or positional listener model. Use `SKAction.playSoundFileNamed`, `AVAudioPlayer`, or `AVAudioEngine` when their ownership and feature set fit better.
 - Set `isPositional = false` for background music and ambient loops; use `isPositional = true` only for sounds attached to game objects.
 - Set `scene.listener` to the player node to enable automatic 3D panning and attenuation for all positional audio. SpriteKit tracks the listener node's position automatically — do not manually sync it in `update(_:)`.
-- Remove one-shot sound nodes from the parent after playback — orphaned `SKAudioNode` instances leak memory.
-- Use `SKAction.changeVolume(to:duration:)` to fade music in and out — never jump volume abruptly.
+- Remove one-shot sound nodes from the parent after playback so completed nodes do not accumulate in the scene tree.
+- Use `SKAction.changeVolume(to:duration:)` when the design calls for a fade; immediate volume changes remain valid for muting, initialization, or abrupt effects.
 - Use `SKAction.stereoPan(to:duration:)` for stereo panning, `SKAction.changePlaybackRate(to:duration:)` for speed changes, `SKAction.changeObstruction(to:duration:)` for direct-path damping, and `SKAction.changeOcclusion(to:duration:)` for full-path damping (including reverb).
 - Use `AVAudioEngine` directly when you need effects chains (reverb, EQ, compression) beyond what `SKAudioNode` exposes.
 - Prefer `.wav` for short sound effects (lower decode latency) and `.mp3` or `.m4a` for background music (better compression).

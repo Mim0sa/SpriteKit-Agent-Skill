@@ -1,14 +1,14 @@
 # GameplayKit — Agents, Goals, and Behaviors
 
 - Use `GKAgent2D` (not `GKAgent3D`) for SpriteKit — it operates in the same 2D coordinate space.
-- Implement `GKAgentDelegate` on the owning component or entity to synchronize the agent's `position`/`rotation` with the `SKSpriteNode` each frame — without it the agent simulates but nothing moves visually.
+- For an agent-driven entity whose SpriteKit node is not moved by physics or actions, implement `GKAgentDelegate` on the owning component or entity and copy the agent's `position`/`rotation` to the `SKSpriteNode` in `agentDidUpdate(_:)`.
 - Set `agent.maxSpeed` and `agent.maxAcceleration` to match your game's physics feel — these are the primary tuning knobs; `mass` affects how quickly the agent reacts to forces.
 - Compose behaviors from multiple `GKGoal` instances with different weights via `GKBehavior(goals:andWeights:)` — weights are relative, not normalized.
 - Use `GKCompositeBehavior` when goals need to be grouped and weighted as a unit (e.g., flocking = alignment + cohesion + separation, all weighted together vs. obstacle avoidance).
 - Prefer `GKGoal(toAvoid:maxPredictionTime:)` over manual obstacle checks — the agent predicts future collisions and steers away proactively.
 - Call `agent.update(deltaTime:)` from your entity's update loop — not directly from the scene, unless agents are managed by a `GKComponentSystem`.
-- Separate the `GKAgent2D` from the display node — let the agent compute steering math, then copy `agent.position` into `node.position` in `agentDidUpdate(_:)`.
-- Never use `GKAgent2D` with `SKPhysicsBody` directly — the agent moves by manipulating position, conflicting with physics simulation; choose one or the other per entity.
+- Keep the `GKAgent2D` separate from its display node. When the agent is authoritative, copy `agent.position` into a non-dynamic node in `agentDidUpdate(_:)`.
+- Establish one authoritative movement source when combining `GKAgent2D` with `SKPhysicsBody`. For a physics-driven entity, copy the node's physics-updated transform into the agent in `agentWillUpdate(_:)`, then convert the agent's desired motion into physics forces or velocity without assigning `node.position` in `agentDidUpdate(_:)`. Alternatively, let the agent drive a node with no dynamic physics body.
 
 ## Basic Agent Setup
 
@@ -18,7 +18,7 @@ import GameplayKit
 class AgentComponent: GKComponent, GKAgentDelegate {
     let agent = GKAgent2D()
 
-    // The node this agent drives
+    // Agent-driven example: this node has no dynamic physics body.
     private weak var node: SKSpriteNode?
 
     init(node: SKSpriteNode, maxSpeed: Float = 200, maxAcceleration: Float = 80) {
@@ -138,10 +138,11 @@ let agentSystem = GKComponentSystem(componentClass: AgentComponent.self)
 // Register when adding entities
 agentSystem.addComponent(foundIn: entity)
 
-// In scene update — update agents after physics, before rendering
-// Store lastUpdateTime as a property and compute delta in update(_:)
+// In scene update — update agents before SpriteKit actions and physics.
+// Store these values as properties on the scene.
+let maximumAgentDelta: TimeInterval = 0.05  // Chosen for this game's resume behavior.
 override func update(_ currentTime: TimeInterval) {
-    let dt = lastUpdateTime > 0 ? min(currentTime - lastUpdateTime, 1.0 / 20.0) : 0
+    let dt = lastUpdateTime > 0 ? min(currentTime - lastUpdateTime, maximumAgentDelta) : 0
     lastUpdateTime = currentTime
     agentSystem.update(deltaTime: dt)
 }

@@ -2,14 +2,15 @@
 
 - Use the simplest physics shape that fits: `circleOfRadius` > `rectangleOf` > `polygonFrom` > `init(texture:size:)`. Texture-based physics is the slowest — avoid unless pixel-perfect collision is required.
 - Define all physics categories in one place as a struct with `UInt32` bit constants. Each scene supports a maximum of **32 categories** (bits 0–31).
-- Configure all three bitmasks on every physics body: `categoryBitMask`, `collisionBitMask`, `contactTestBitMask`. `collisionBitMask` controls physical push/bounce response; `contactTestBitMask` controls `didBegin(_:)` callbacks — they are independent and commonly confused.
+- Treat `categoryBitMask` as a set of memberships. Test a category with `(body.categoryBitMask & category) != 0` when a body may carry multiple bits; use equality only when the project enforces exactly one category per body.
+- Set `categoryBitMask`, `collisionBitMask`, and `contactTestBitMask` intentionally when their defaults do not express the design. `collisionBitMask` controls physical response; `contactTestBitMask` controls contact callbacks.
 - Only add categories to `contactTestBitMask` that you actually handle in `didBegin(_:)` — unused contact pairs waste CPU.
-- Set `isDynamic = false` for all static objects (walls, platforms, ground). This is the single biggest physics performance win.
+- Set `isDynamic = false` for bodies that must not move under forces or collisions, such as fixed walls and terrain.
 - Set `allowsRotation = false` for player and humanoid characters unless spinning is intentional.
 - Enable `usesPreciseCollisionDetection` only for fast-moving objects that could tunnel through thin bodies (e.g. bullets). Leave it off everywhere else.
 - Avoid setting `position` directly on a node with an active physics body during gameplay — use `applyForce`, `applyImpulse`, or `velocity`. Direct position assignment is acceptable for one-time teleports or respawns.
 - Edge-based bodies (`edgeLoopFrom`, `edgeChainFrom`) **never collide with other edge-based bodies**. Use thin rectangle bodies when two static surfaces must interact.
-- Clear `physicsBody = nil` before removing a node — the physics body otherwise persists in the simulation.
+- Clear or reset `physicsBody` before pooling a node when the pooled instance should stop participating in physics or will be reconfigured. Removing and releasing a node does not require this as a universal cleanup step.
 - Defer all node removal triggered by contacts to `didSimulatePhysics()`.
 - Use `SKFieldNode` instead of per-frame manual force calculations for gravity wells, drag zones, and wind.
 - Assign `fieldBitMask` to physics bodies to control which fields affect them.
@@ -31,7 +32,7 @@ struct PhysicsCategory {
     // Max 32 total (up to bit 31)
 }
 
-// All three bitmasks required
+// Set each mask explicitly when this body relies on non-default behavior.
 body.categoryBitMask     = PhysicsCategory.player
 body.collisionBitMask    = PhysicsCategory.obstacle | PhysicsCategory.boundary
 body.contactTestBitMask  = PhysicsCategory.enemy | PhysicsCategory.powerUp
@@ -103,9 +104,18 @@ projectile.physicsBody?.fieldBitMask = 0
 
 ## Contact Delegate
 
+Select the conformance form from both the target platform and compiler. On iOS, macOS, tvOS, and visionOS, Swift 6.2+ supports a global-actor-isolated conformance; Swift 6.0 and 6.1 require `@preconcurrency` when the main-actor-isolated scene satisfies the nonisolated delegate requirements. SpriteKit nodes are not main-actor-isolated on watchOS, so use an ordinary conformance there and configure the delegate without `SKView`. Older compilers can also use an ordinary conformance. Do not raise the deployment target or Swift language mode solely to copy a newer form.
+
 ```swift
-class GameScene: SKScene, SKPhysicsContactDelegate {
+class GameScene: SKScene {
+    #if !os(watchOS)
     override func didMove(to view: SKView) {
+        configurePhysics()
+    }
+    #endif
+
+    // On watchOS, call this before presenting the scene through WKInterfaceSKScene.
+    func configurePhysics() {
         physicsWorld.contactDelegate = self
     }
 
@@ -113,17 +123,33 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let (a, b) = (contact.bodyA, contact.bodyB)
         guard let nodeA = a.node, let nodeB = b.node else { return }
 
-        let isPlayerEnemy =
-            (a.categoryBitMask == PhysicsCategory.player && b.categoryBitMask == PhysicsCategory.enemy) ||
-            (a.categoryBitMask == PhysicsCategory.enemy  && b.categoryBitMask == PhysicsCategory.player)
-
-        if isPlayerEnemy {
-            let player = a.categoryBitMask == PhysicsCategory.player ? nodeA : nodeB
-            let enemy  = a.categoryBitMask == PhysicsCategory.enemy  ? nodeA : nodeB
-            handlePlayerHitEnemy(player: player, enemy: enemy)
+        let aIsPlayer = (a.categoryBitMask & PhysicsCategory.player) != 0
+        let aIsEnemy = (a.categoryBitMask & PhysicsCategory.enemy) != 0
+        let bIsPlayer = (b.categoryBitMask & PhysicsCategory.player) != 0
+        let bIsEnemy = (b.categoryBitMask & PhysicsCategory.enemy) != 0
+        let player: SKNode
+        let enemy: SKNode
+        if aIsPlayer && bIsEnemy {
+            (player, enemy) = (nodeA, nodeB)
+        } else if bIsPlayer && aIsEnemy {
+            (player, enemy) = (nodeB, nodeA)
+        } else {
+            return
         }
+
+        handlePlayerHitEnemy(player: player, enemy: enemy)
     }
 }
+
+#if os(watchOS)
+extension GameScene: SKPhysicsContactDelegate {}
+#elseif compiler(>=6.2)
+extension GameScene: @MainActor SKPhysicsContactDelegate {}
+#elseif compiler(>=6.0)
+extension GameScene: @preconcurrency SKPhysicsContactDelegate {}
+#else
+extension GameScene: SKPhysicsContactDelegate {}
+#endif
 ```
 
 ## Physics Feel Tuning

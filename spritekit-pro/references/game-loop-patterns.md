@@ -1,11 +1,11 @@
 # Game Loop Patterns
 
-- Always compute `deltaTime` from the `currentTime` parameter in `update(_:)` — never use a hardcoded time step for movement or animation.
-- Guard against abnormally large delta values on first frame or after backgrounding: clamp delta to a max of `1.0 / 20.0`.
-- Place game logic (input, AI, state) in `update(_:)`. Place node removal in `didSimulatePhysics()`. Use `didFinishUpdate()` for metrics only — do not modify node state there.
-- Use fixed-timestep accumulation when physics determinism is required (e.g. network multiplayer, replays).
+- Compute variable-step `deltaTime` from the `currentTime` parameter in `update(_:)`; do not assume a fixed display frame rate.
+- Guard against first-frame and resume spikes. Choose the maximum accepted delta from gameplay requirements instead of treating `1.0 / 20.0` as universal.
+- Place game logic in `update(_:)` and defer contact-triggered removals until after physics. Use `didFinishUpdate()` for final values that must be rendered in the current frame; actions, physics, and constraints changed there take effect in later update phases.
+- Use fixed-step accumulation for custom deterministic game logic when needed. It does not make SpriteKit's internally stepped physics simulation deterministic for networking or replays.
 - Never place heavy computation (sorting large arrays, pathfinding) directly in `update(_:)` — batch or throttle it.
-- Use a component system for entities with multiple behaviors; call `entity.update(deltaTime:)` from the scene's `update(_:)`.
+- If the project uses GameplayKit entities, update them from one documented point in the frame cycle to avoid duplicate updates.
 
 ## Frame Cycle Reference
 
@@ -15,17 +15,18 @@
 | `didEvaluateActions()` | Checking action completion states | Heavy computation |
 | `didSimulatePhysics()` | Deferred node removal, camera update | Adding new physics bodies |
 | `didApplyConstraints()` | Post-constraint adjustments | New constraints |
-| `didFinishUpdate()` | Metrics, debug logging | Any node state changes |
+| `didFinishUpdate()` | Final presentation adjustments, metrics | Expecting newly added actions, physics, or constraints to run in the same frame |
 
 ## Basic Delta Time
 
 ```swift
 class GameScene: SKScene {
     var lastUpdateTime: TimeInterval = 0
+    let maximumDelta: TimeInterval = 0.05
 
     override func update(_ currentTime: TimeInterval) {
         let rawDelta = lastUpdateTime > 0 ? currentTime - lastUpdateTime : 0
-        let deltaTime = min(rawDelta, 1.0 / 20.0)  // Clamp spike on resume
+        let deltaTime = min(rawDelta, maximumDelta)
         lastUpdateTime = currentTime
 
         updatePlayer(deltaTime: deltaTime)
@@ -54,7 +55,8 @@ class GameScene: SKScene {
     }
 
     func fixedUpdate(dt: TimeInterval) {
-        // Deterministic physics-tick logic here
+        // Fixed-step custom simulation or game logic here.
+        // SpriteKit advances physics separately in its frame cycle.
     }
 }
 ```

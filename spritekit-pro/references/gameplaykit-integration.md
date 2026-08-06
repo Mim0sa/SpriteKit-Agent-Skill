@@ -17,9 +17,9 @@ GameplayKit also ships a strategist family (`GKMinmaxStrategist`, `GKMonteCarloS
 ## Cross-Cutting Rules
 
 - Import `GameplayKit` at the top of any file that uses GK types — `SpriteKit` does not re-export it.
-- GameplayKit is available on iOS 9+ / macOS 10.11+ / tvOS 9+ / visionOS 1.0+ — all main SpriteKit targets.
-- `GKAgent` and physics bodies conflict — choose one movement system per entity.
-- Never mix raw `arc4random` with `GKRandomSource` in the same game session — pick one source of randomness and keep it consistent for reproducibility.
+- GameplayKit is available on iOS 9+ / macOS 10.11+ / tvOS 9+ and to native visionOS apps. SpriteKit APIs are also present in the visionOS SDK, although Apple advises against using SpriteKit in apps created specifically for visionOS.
+- When an agent and a physics body share an entity, choose one authoritative movement source and synchronize the other representation.
+- Use one documented, seedable randomness pipeline for systems that require reproducibility. Unrelated cosmetic randomness may use a separate source when it does not affect replay state.
 - Use `GKScene` to embed GameplayKit entities and graphs directly in `.sks` scene files when using the SpriteKit Scene Editor.
 
 ## GKScene / SKS Integration

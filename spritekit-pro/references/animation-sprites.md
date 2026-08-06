@@ -1,11 +1,11 @@
 # Animation and Sprites
 
-- Always group related sprites in a texture atlas (`.atlas` folder). Single textures per draw call — individual files multiply draw calls.
+- Group related sprites in a texture atlas when it improves loading and batching. Verify draw count because z-order, overlap, blend mode, shaders, and effects can still split drawing passes.
 - Preload atlases with `SKTextureAtlas.preloadTextureAtlases(_:withCompletionHandler:)` before the scene appears. Never load textures for the first time inside `update(_:)`.
-- Create reusable actions as `static let` constants — never create `SKAction` instances inside `update(_:)` or inside loops.
-- Use `[weak self]` in all action completion blocks and `SKAction.run` blocks.
+- Reuse immutable actions that are executed frequently. Avoid reconstructing identical actions in measured hot paths.
+- Break a repeating or long-lived node-action-closure ownership cycle with `[weak self]` or guaranteed action cancellation at the node's ownership boundary. A finite action may capture its owner strongly only when it is guaranteed to run to completion or be canceled while the node is still reachable; detaching a node pauses its actions and can otherwise make the cycle persistent.
 - Stop a specific action with `removeAction(forKey:)` rather than `removeAllActions()`, which also cancels unrelated actions.
-- Manage animation states with a state machine or enum rather than manually tracking which animation is running.
+- Use an enum or state machine when an entity has multiple mutually exclusive animations and transition rules.
 - Set anchor points intentionally — default `(0.5, 0.5)` is correct for physics bodies; `(0, 0.5)` is useful for health bars.
 - Use `SKAction.sequence` for serial actions and `SKAction.group` for parallel actions.
 - Pass completion logic to `run(_:completion:)` or chain with `SKAction.sequence` — do not use `DispatchQueue.asyncAfter` for action sequencing.
@@ -13,7 +13,7 @@
 ## Texture Atlas Loading
 
 ```swift
-// Correct: atlas reduces draw calls; preload before scene appears
+// An atlas centralizes loading and may improve batching; verify draw count.
 let atlas = SKTextureAtlas(named: "Player")
 let walkFrames = (1...8).map { atlas.textureNamed("walk_\($0)") }
 
@@ -95,11 +95,25 @@ func stopPulse()  { removeAction(forKey: "pulse") }
 ## Completion Chaining
 
 ```swift
-// Correct: chain with sequence
-let move = SKAction.move(to: targetPos, duration: 1)
-let callback = SKAction.run { [weak self] in self?.animationComplete() }
-run(SKAction.sequence([move, callback]))
+func animateWhileLifetimeIsGuaranteed() {
+    let move = SKAction.move(to: targetPos, duration: 1)
+    let callback = SKAction.run { self.animationComplete() }
+    run(SKAction.sequence([move, callback]))
+}
 
-// Also correct: completion closure
-run(move) { [weak self] in self?.animationComplete() }
+func animateWhenNodeMayDetach() {
+    let move = SKAction.move(to: targetPos, duration: 1)
+    run(move) { [weak self] in self?.animationComplete() }
+}
+
+func animateWithExplicitCancellationBoundary() {
+    let move = SKAction.move(to: targetPos, duration: 1)
+    let callback = SKAction.run { self.animationComplete() }
+    run(SKAction.sequence([move, callback]), withKey: "move-and-callback")
+}
+
+// The external lifecycle owner calls this before detaching the node.
+func prepareForRemoval() {
+    removeAction(forKey: "move-and-callback")
+}
 ```

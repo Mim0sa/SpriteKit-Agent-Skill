@@ -1,8 +1,8 @@
 interface:
-  display_name: "spritekit-pro"
-  short_description: "Reviews and writes SpriteKit game code for correctness, performance, and modern API usage."
+  display_name: "SpriteKit Pro"
+  short_description: "Explains, writes, debugs, reviews, and optimizes SpriteKit code."
   brand_color: "#F05138"
-  default_prompt: "Use $spritekit-pro to review my SpriteKit code."
+  default_prompt: "Use $spritekit-pro to help with this SpriteKit task."
 
 policy:
   allow_implicit_invocation: true

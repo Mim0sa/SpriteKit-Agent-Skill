@@ -1,14 +1,14 @@
 # Cross-Platform Development
 
-- Never use SpriteKit in a native visionOS app — it is only supported in iPad/iPhone compatibility mode on visionOS. Use RealityKit for native visionOS targets.
+- SpriteKit APIs are available in the visionOS SDK, but Apple advises against using SpriteKit in apps created specifically for visionOS. Prefer RealityKit or SwiftUI for native visionOS experiences; do not describe SpriteKit as unavailable or limited to compatibility mode.
 - On watchOS, display SpriteKit content using `WKInterfaceSKScene` — there is no `SKView` on watchOS.
-- Use `#if os(iOS)`, `#if os(macOS)`, `#if os(tvOS)` for all platform-specific branches. Never use `UIDevice.current.userInterfaceIdiom` for compile-time platform differences.
-- Abstract all input handling behind a shared protocol so game logic contains no platform conditionals (see `input-handling.md`).
-- On tvOS, never use touch-based interaction — all navigation must go through the focus engine or a `GCController`.
-- Handle the tvOS Siri Remote menu button explicitly via `UITapGestureRecognizer` with `allowedPressTypes = [.menu]` — unhandled menu presses cause the app to exit.
+- Use `#if os(iOS)`, `#if os(macOS)`, `#if os(tvOS)`, `#if os(watchOS)`, and `#if os(visionOS)` when APIs differ at compile time. Use runtime traits or idiom checks for behavior differences within a shared platform build.
+- Abstract input behind a shared protocol when the game targets multiple input models; a single-platform game does not need this layer by default.
+- On tvOS, support focus, remote presses, or `GCController` input as appropriate to the interaction; do not assume touch events exist.
+- Preserve the expected system behavior of the tvOS Menu/Back control. Intercept it only for a documented navigation or pause behavior, not merely to prevent leaving the app.
 - On macOS, hide the cursor on scene entry (`NSCursor.hide()`) and restore it in `willMove(from:)` for action games where the cursor is not needed.
 - Position iOS HUD elements using `view.safeAreaInsets` — `SKScene` has no built-in safe area property; pass insets via a custom property on your scene subclass and update it in `viewSafeAreaInsetsDidChange()`.
-- Use `#if targetEnvironment(simulator)` to disable Metal shaders, accelerometer, and other features that fail in the simulator.
+- Simulator supports Metal. Query required capabilities and condition only unsupported features; use `#if targetEnvironment(simulator)` for APIs such as motion sensors that genuinely need a simulator fallback. Validate rendering performance on hardware.
 
 ## Platform Detection
 
@@ -18,24 +18,50 @@
 #elseif os(macOS)
     // Mouse, keyboard, NSCursor
 #elseif os(tvOS)
-    // Focus engine, Siri Remote, GCController required
+    // Focus, remote presses, or GCController, according to the interaction
+#elseif os(watchOS)
+    // WKInterfaceSKScene and watch-specific interaction
 #elseif os(visionOS)
-    // ⚠️ Compatibility mode only — native visionOS must use RealityKit
+    // SpriteKit symbols are available, but prefer RealityKit or SwiftUI for
+    // an experience created specifically for visionOS.
 #endif
 ```
 
-## tvOS — Menu Button
+## tvOS — Optional Menu/Back Handling
 
 ```swift
 #if os(tvOS)
+private var menuRecognizer: UITapGestureRecognizer?
+
 override func didMove(to view: SKView) {
+    super.didMove(to: view)
+    guard menuRecognizer == nil else { return }
+
     let menu = UITapGestureRecognizer(target: self, action: #selector(menuPressed))
     menu.allowedPressTypes = [NSNumber(value: UIPress.PressType.menu.rawValue)]
     view.addGestureRecognizer(menu)
+    menuRecognizer = menu
 }
-@objc func menuPressed() { togglePause() }
+
+override func willMove(from view: SKView) {
+    if let menuRecognizer {
+        view.removeGestureRecognizer(menuRecognizer)
+        self.menuRecognizer = nil
+    }
+    super.willMove(from: view)
+}
+
+@objc private func menuPressed() {
+    if isPaused {
+        navigateBack()
+    } else {
+        isPaused = true
+    }
+}
 #endif
 ```
+
+Only install this recognizer when pausing is part of the app's navigation design. The example uses the first press to pause and a subsequent press to navigate back; adapt `navigateBack()` to the app's navigation owner so the control still exits according to platform conventions.
 
 ## iOS — Safe Area
 
@@ -67,14 +93,14 @@ class GameScene: SKScene {
 #endif
 ```
 
-## visionOS — Use RealityKit Instead
+## visionOS — Follow Native Platform Guidance
 
 ```swift
-// ❌ Wrong: SpriteKit in a native visionOS WindowGroup or ImmersiveSpace
-// SpriteKit runs only in iPad/iPhone compatibility mode on visionOS — not in native windows
-SpriteView(scene: GameScene())  // Only valid in compatibility mode, not for native visionOS targets
+// SpriteView is available in the SDK, but do not choose this architecture for
+// an app or experience created specifically for visionOS.
+// SpriteView(scene: GameScene())
 
-// ✅ Correct: RealityKit for native visionOS targets
+// Preferred for a native visionOS experience.
 import RealityKit
 struct ImmersiveView: View {
     var body: some View {
